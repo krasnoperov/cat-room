@@ -271,6 +271,7 @@ const paperTex = canvasTex(256, 360, (g, w, h) => {
 
 const M = {
   wall: toon('#fbf4ec'),
+  wallTop: toon('#e6dbe6'),
   floor: toon('#fff4ea', { map: planks }),
   wood: toon('#c98d57'),
   woodDark: toon('#9b6440'),
@@ -294,7 +295,7 @@ const M = {
   paper: toon('#ffffff', { map: paperTex, side: THREE.DoubleSide }),
   glass: new THREE.MeshBasicMaterial({ color: '#dfeefc', transparent: true, opacity: 0.12, depthWrite: false }),
   lanternOff: toon('#f3e8d4'),
-  lanternOn: new THREE.MeshBasicMaterial({ color: '#ffe2b0' }),
+  lanternOn: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd9a0').multiplyScalar(2.4) }),
   rib: toon('#c8a77c'),
 };
 
@@ -370,7 +371,7 @@ function buildWall(k) {
   for (const r of wallRects(w)) {
     const top = Math.min(r[3], w.cut);
     if (top - r[2] < 0.004) continue;
-    const cap = top < r[3] - 0.001 ? hatch : M.wall;
+    const cap = top < r[3] - 0.001 ? hatch : M.wallTop;
     const m = wallBox(w, r, top, [M.wall, M.wall, cap, M.wall, M.wall, M.wall]);
     m.receiveShadow = true;
     g.add(m);
@@ -912,9 +913,22 @@ sunLight.shadow.normalBias = 0.02;
 scene.add(sunLight, sunLight.target);
 const fill = new THREE.DirectionalLight('#f3e9ff', 0.5);
 scene.add(fill, fill.target);
-const lanternLight = new THREE.PointLight('#ffbf78', 0, 7, 1.4);
+const lanternLight = new THREE.PointLight('#ffb870', 0, 5, 1.7);
 lanternLight.position.copy(lanternItem.group.position);
 scene.add(lanternLight);
+/* the lantern's warm pool on the floor and the wall behind it */
+const lanternPool = noInk(new THREE.Mesh(
+  new THREE.CircleGeometry(1.5, 48),
+  new THREE.MeshBasicMaterial({ map: canvasTex(128, 128, (g) => {
+    const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255, 190, 120, 1)'); gr.addColorStop(0.45, 'rgba(255, 170, 100, 0.45)'); gr.addColorStop(1, 'rgba(255, 160, 90, 0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  }), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }),
+));
+lanternPool.rotation.x = -Math.PI / 2;
+lanternPool.position.set(lanternLight.position.x, 0.006, lanternLight.position.z);
+lanternPool.renderOrder = 4;
+scene.add(lanternPool);
 /* light bouncing off the sun patch warms the room around it */
 const bounce = new THREE.PointLight('#ffc596', 0, 5.5, 1);
 scene.add(bounce);
@@ -1375,88 +1389,163 @@ function stepPapers(dt, time) {
 }
 
 /* ===================================================================
-   INK: the scene is drawn once for colour and once for normals and
-   depth; a last pass inks the edges, grades the colour and adds paper.
+   PAINT PIPELINE
+   1. colour  (MSAA, HDR half-float, stencil for the window portal)
+   2. normals + depth  (same scene, normal materials, clip planes kept)
+   3. bloom   (bright pass at quarter size, two separable blurs)
+   4. paint   ink edges, ambient occlusion, bloom, grade, paper, tilt-shift
    =================================================================== */
-const colorRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4, stencilBuffer: true });
-const normalRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(1, 1) });
-const inkQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+const HF = THREE.HalfFloatType;
+const colorRT = new THREE.WebGLRenderTarget(1, 1, { type: HF, samples: 4, stencilBuffer: true });
+const normalRT = new THREE.WebGLRenderTarget(1, 1, { type: HF, depthTexture: new THREE.DepthTexture(1, 1) });
+const bloomA = new THREE.WebGLRenderTarget(1, 1, { type: HF });
+const bloomB = new THREE.WebGLRenderTarget(1, 1, { type: HF });
+const quadVS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+const fsQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+fsQuad.frustumCulled = false;
+const fsScene = new THREE.Scene();
+fsScene.add(fsQuad);
+const fsCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+function runPass(mat, target) { fsQuad.material = mat; renderer.setRenderTarget(target); renderer.render(fsScene, fsCam); }
+
+const brightMat = new THREE.ShaderMaterial({
+  uniforms: { tColor: { value: colorRT.texture }, uThreshold: { value: 1.5 } },
+  vertexShader: quadVS,
+  fragmentShader: `uniform sampler2D tColor; uniform float uThreshold; varying vec2 vUv;
+    void main(){ vec3 c = texture2D(tColor, vUv).rgb; float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      gl_FragColor = vec4(c * smoothstep(uThreshold, uThreshold + 0.9, l), 1.0); }`,
+  depthTest: false, depthWrite: false,
+});
+const blurMat = new THREE.ShaderMaterial({
+  uniforms: { tSrc: { value: null }, uDir: { value: new THREE.Vector2() } },
+  vertexShader: quadVS,
+  fragmentShader: `uniform sampler2D tSrc; uniform vec2 uDir; varying vec2 vUv;
+    void main(){
+      vec3 c = texture2D(tSrc, vUv).rgb * 0.2270;
+      c += (texture2D(tSrc, vUv + uDir * 1.3846).rgb + texture2D(tSrc, vUv - uDir * 1.3846).rgb) * 0.3162;
+      c += (texture2D(tSrc, vUv + uDir * 3.2308).rgb + texture2D(tSrc, vUv - uDir * 3.2308).rgb) * 0.0703;
+      gl_FragColor = vec4(c, 1.0); }`,
+  depthTest: false, depthWrite: false,
+});
+
+const paintMat = new THREE.ShaderMaterial({
   uniforms: {
     tColor: { value: colorRT.texture }, tNormal: { value: normalRT.texture }, tDepth: { value: normalRT.depthTexture },
-    uTexel: { value: new THREE.Vector2() }, uRange: { value: 99.9 }, uInk: { value: new THREE.Color('#4a323c') },
-    uNight: { value: 0 },
+    tBloom: { value: bloomA.texture },
+    uTexel: { value: new THREE.Vector2() }, uNear: { value: 0.1 }, uFar: { value: 100 },
+    uFrustum: { value: new THREE.Vector4() }, uInk: { value: new THREE.Color('#4a323c') },
+    uNight: { value: 0 }, uTilt: { value: 0 }, uFocus: { value: 0.45 }, uAO: { value: 1 },
   },
-  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+  vertexShader: quadVS,
   fragmentShader: `
-    uniform sampler2D tColor, tNormal, tDepth; uniform vec2 uTexel; uniform float uRange, uNight; uniform vec3 uInk;
+    uniform sampler2D tColor, tNormal, tDepth, tBloom;
+    uniform vec2 uTexel; uniform float uNear, uFar, uNight, uTilt, uFocus, uAO;
+    uniform vec4 uFrustum; uniform vec3 uInk;
     varying vec2 vUv;
-    float D(vec2 o){ return texture2D(tDepth, vUv + o * uTexel).x; }
-    vec3 N(vec2 o){ return texture2D(tNormal, vUv + o * uTexel).xyz * 2.0 - 1.0; }
+    float D(vec2 uv){ return texture2D(tDepth, uv).x; }
+    vec3 N(vec2 uv){ return normalize(texture2D(tNormal, uv).xyz * 2.0 - 1.0); }
+    vec3 P(vec2 uv){ return vec3(mix(uFrustum.x, uFrustum.y, uv.x), mix(uFrustum.z, uFrustum.w, uv.y), -(uNear + D(uv) * (uFar - uNear))); }
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
       return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
+
     void main(){
+      // tilt-shift: soft focus away from a horizontal band, like a macro lens on a miniature
+      float blurAmt = uTilt * smoothstep(0.08, 0.42, abs(vUv.y - uFocus));
       vec4 col = texture2D(tColor, vUv);
-      float dc = D(vec2(0));
-      float edge = 0.0;
+      if (blurAmt > 0.001) {
+        vec4 acc = col; float wsum = 1.0;
+        for (int i = 0; i < 16; i++) {
+          float a = float(i) * 2.39996, r = sqrt((float(i) + 0.5) / 16.0);
+          vec2 o = vec2(cos(a), sin(a)) * r * blurAmt * 9.0 * uTexel;
+          acc += texture2D(tColor, vUv + o); wsum += 1.0;
+        }
+        col = acc / wsum;
+      }
+      float dc = D(vUv);
+      float edge = 0.0, ao = 0.0;
       if (dc < 0.9999) {
-        float lap = 0.0;
-        lap += abs(D(vec2(-1, 0)) + D(vec2(1, 0)) - 2.0 * dc);
-        lap += abs(D(vec2(0, -1)) + D(vec2(0, 1)) - 2.0 * dc);
-        lap += 0.5 * abs(D(vec2(-1, -1)) + D(vec2(1, 1)) - 2.0 * dc);
-        lap += 0.5 * abs(D(vec2(-1, 1)) + D(vec2(1, -1)) - 2.0 * dc);
-        float dEdge = smoothstep(0.012, 0.035, lap * uRange);
-        vec3 nc = N(vec2(0));
-        float nd = 0.0;
-        nd = max(nd, 1.0 - dot(nc, N(vec2(1, 0))));
-        nd = max(nd, 1.0 - dot(nc, N(vec2(-1, 0))));
-        nd = max(nd, 1.0 - dot(nc, N(vec2(0, 1))));
-        nd = max(nd, 1.0 - dot(nc, N(vec2(0, -1))));
+        vec2 t = uTexel;
+        float lap = abs(D(vUv - vec2(t.x, 0)) + D(vUv + vec2(t.x, 0)) - 2.0 * dc)
+                  + abs(D(vUv - vec2(0, t.y)) + D(vUv + vec2(0, t.y)) - 2.0 * dc)
+                  + 0.5 * abs(D(vUv - t) + D(vUv + t) - 2.0 * dc)
+                  + 0.5 * abs(D(vUv + vec2(-t.x, t.y)) + D(vUv + vec2(t.x, -t.y)) - 2.0 * dc);
+        float dEdge = smoothstep(0.012, 0.035, lap * (uFar - uNear));
+        vec3 nc = N(vUv);
+        float nd = max(max(1.0 - dot(nc, N(vUv + vec2(t.x, 0))), 1.0 - dot(nc, N(vUv - vec2(t.x, 0)))),
+                       max(1.0 - dot(nc, N(vUv + vec2(0, t.y))), 1.0 - dot(nc, N(vUv - vec2(0, t.y)))));
         float nEdge = smoothstep(0.22, 0.5, nd);
-        // ink wobbles a little, like a pen
-        float pen = 0.75 + 0.25 * vnoise(gl_FragCoord.xy * 0.08);
-        edge = max(dEdge, nEdge) * pen;
+        edge = max(dEdge, nEdge) * (0.75 + 0.25 * vnoise(gl_FragCoord.xy * 0.08)) * (1.0 - blurAmt);
+
+        // ambient occlusion in the orthographic view: a spiral of samples within 22 cm
+        vec3 p = P(vUv);
+        vec2 span = vec2(uFrustum.y - uFrustum.x, uFrustum.w - uFrustum.z);
+        float rot = hash(gl_FragCoord.xy) * 6.2831;
+        for (int i = 0; i < 12; i++) {
+          float a = float(i) * 2.39996 + rot, r = (float(i) + 0.5) / 12.0;
+          vec2 o = vec2(cos(a), sin(a)) * r * 0.22;
+          vec3 q = P(vUv + o / span) - p;
+          float dist = length(q);
+          ao += max(0.0, dot(nc, q / max(dist, 1e-4)) - 0.12) * (1.0 - smoothstep(0.08, 0.32, dist));
+        }
+        ao = clamp(ao / 12.0 * 2.2, 0.0, 1.0) * uAO;
       }
       vec3 c = col.rgb;
+      c *= mix(vec3(1.0), vec3(0.8, 0.74, 0.9), ao);
       c = mix(c, c * uInk * 1.9, edge * 0.85);
+      // bloom, warmed a touch
+      vec3 bl = texture2D(tBloom, vUv).rgb;
+      c += bl * vec3(1.0, 0.9, 0.78) * 0.55;
+      float alpha = max(col.a, clamp(dot(bl, vec3(0.33)) * 0.6, 0.0, 1.0));
       // grade: lavender in the shade, apricot in the light
-      float lum = dot(c, vec3(0.2126, 0.7152, 0.0722)) / max(col.a, 0.001);
+      float lum = dot(c, vec3(0.2126, 0.7152, 0.0722)) / max(alpha, 0.001);
       vec3 shade = mix(vec3(0.94, 0.9, 1.06), vec3(0.9, 0.9, 1.1), uNight);
       c *= mix(shade, vec3(1.05, 1.0, 0.93), smoothstep(0.08, 0.7, lum));
       // paper: fine grain and slow fibres
-      float grain = hash(gl_FragCoord.xy) - 0.5;
+      float grain = hash(gl_FragCoord.xy + 17.0) - 0.5;
       float fibre = vnoise(gl_FragCoord.xy * vec2(0.012, 0.03)) - 0.5;
       c *= 1.0 + grain * 0.045 + fibre * 0.05;
-      gl_FragColor = vec4(c, col.a);
+      gl_FragColor = vec4(c, alpha);
       #include <colorspace_fragment>
     }`,
   depthTest: false, depthWrite: false,
-}));
-const inkScene = new THREE.Scene();
-inkScene.add(inkQuad);
-const inkCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+});
+
 const normalMats = new Map();
 function normalMatFor(m) {
   const src = Array.isArray(m) ? m[0] : m;
   const planes = src.clippingPlanes || null;
-  const key = (planes ? planes[0].__id || (planes[0].__id = Math.random()) : 0) + ':' + src.side;
-  if (!normalMats.has(key)) normalMats.set(key, new THREE.MeshNormalMaterial({ side: src.side, clippingPlanes: planes }));
+  const cut = src.alphaTest > 0 ? src.map || src.alphaMap : null;
+  const key = (planes ? planes[0].__id || (planes[0].__id = Math.random()) : 0) + ':' + src.side + ':' + (cut ? cut.uuid : '');
+  if (!normalMats.has(key)) {
+    normalMats.set(key, new THREE.MeshNormalMaterial({ side: src.side, clippingPlanes: planes }));
+    if (cut) { const nm = normalMats.get(key); nm.alphaMap = cut; nm.alphaTest = src.alphaTest; nm.transparent = false; }
+  }
   return normalMats.get(key);
 }
 function sizeTargets() {
   const v = renderer.getDrawingBufferSize(new THREE.Vector2());
   colorRT.setSize(v.x, v.y);
   normalRT.setSize(v.x, v.y);
+  const bw = Math.max(1, Math.round(v.x / 4)), bh = Math.max(1, Math.round(v.y / 4));
+  bloomA.setSize(bw, bh); bloomB.setSize(bw, bh);
+  blurMat.userData.texel = new THREE.Vector2(1 / bw, 1 / bh);
   const px = Math.max(1, renderer.getPixelRatio() * 0.8);
-  inkQuad.material.uniforms.uTexel.value.set(px / v.x, px / v.y);
+  paintMat.uniforms.uTexel.value.set(px / v.x, px / v.y);
 }
 const swapped = [];
+const look = { tilt: 0, tiltTarget: 0 };
 function renderFrame() {
-  inkQuad.material.uniforms.uRange.value = camera.far - camera.near;
-  inkQuad.material.uniforms.uNight.value = sun.night || 0;
+  const u = paintMat.uniforms;
+  u.uNear.value = camera.near; u.uFar.value = camera.far;
+  u.uFrustum.value.set(camera.left / camera.zoom, camera.right / camera.zoom, camera.bottom / camera.zoom, camera.top / camera.zoom);
+  u.uNight.value = sun.night || 0;
+  u.uTilt.value = look.tilt;
+
   renderer.setRenderTarget(colorRT);
   renderer.clear();
   renderer.render(scene, camera);
+
   camera.layers.set(0);
   scene.traverseVisible((o) => { if (o.isMesh && o.layers.test(camera.layers)) { swapped.push(o, o.material); o.material = normalMatFor(o.material); } });
   renderer.setRenderTarget(normalRT);
@@ -1467,8 +1556,14 @@ function renderFrame() {
   for (let i = 0; i < swapped.length; i += 2) swapped[i].material = swapped[i + 1];
   swapped.length = 0;
   camera.layers.enable(1);
-  renderer.setRenderTarget(null);
-  renderer.render(inkScene, inkCam);
+
+  runPass(brightMat, bloomA);
+  const tx = blurMat.userData.texel;
+  for (let i = 0; i < 2; i++) {
+    blurMat.uniforms.tSrc.value = bloomA.texture; blurMat.uniforms.uDir.value.set(tx.x * (1 + i), 0); runPass(blurMat, bloomB);
+    blurMat.uniforms.tSrc.value = bloomB.texture; blurMat.uniforms.uDir.value.set(0, tx.y * (1 + i)); runPass(blurMat, bloomA);
+  }
+  runPass(paintMat, null);
 }
 
 /* ===================================================================
@@ -1747,7 +1842,7 @@ function frame(now) {
   sunLight.color.copy(sunNoon).lerp(sunWarm, sun.warm);
   hemi.color.copy(hemiNightSky).lerp(hemiDaySky, sun.day);
   hemi.groundColor.copy(hemiNightGround).lerp(hemiDayGround, sun.day);
-  hemi.intensity = lerp(0.95, 2.05, sun.day);
+  hemi.intensity = lerp(0.62, 2.05, sun.day);
   fill.intensity = lerp(0.12, 0.4, sun.day);
   const [top, bottom] = skyColors();
   document.body.style.setProperty('--sky-top', top);
@@ -1773,7 +1868,8 @@ function frame(now) {
 
   // lantern
   if (lantern.auto) lantern.on = sun.el < 3 * DEG;
-  lanternLight.intensity += ((lantern.on ? 2.6 : 0) - lanternLight.intensity) * damp(dt, 4);
+  lanternLight.intensity += ((lantern.on ? 5 : 0) - lanternLight.intensity) * damp(dt, 4);
+  lanternPool.material.opacity = 0.55 * clamp(lanternLight.intensity / 5, 0, 1);
   lanternBall.material = lantern.on ? lanternOnMat : lanternOffMat;
 
   // window and breeze
