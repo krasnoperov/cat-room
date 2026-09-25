@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Cat viewer</title>
+<style>html,body{margin:0;height:100%;background:#efe6ee}canvas{display:block}</style></head><body>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search);
+const W = innerWidth, H = innerHeight;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setScissorTest(true); renderer.setClearColor('#ffffff'); document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight('#f3ecff', '#e8d3e6', 2.0));
+const sun = new THREE.DirectionalLight('#fff0dc', 2.2); sun.position.set(-2, 3, 2); scene.add(sun);
+const grad = new THREE.DataTexture(new Uint8Array([120,120,120,255,178,178,178,255,222,222,222,255,255,255,255,255]), 4, 1); grad.minFilter = grad.magFilter = THREE.NearestFilter; grad.needsUpdate = true;
+const views = [[Math.PI * 0.25, 0.5], [Math.PI * 0.5, 0.05], [Math.PI * 0.03, 0.12], [Math.PI * 0.8, 0.6]];
+new GLTFLoader().load(q.get('m') || 'models/cat.glb', (g) => {
+  g.scene.traverse((o) => { if (o.isMesh) { const c = o.material.color?.clone(); o.material = new THREE.MeshToonMaterial({ gradientMap: grad, vertexColors: !!o.geometry.attributes.color, color: o.geometry.attributes.color ? 0xffffff : c }); } });
+  scene.add(g.scene);
+  window.cat = g;
+  if (window.pose) window.pose(g);
+  const cams = views.map(([az, el]) => { const c = new THREE.OrthographicCamera(-0.3, 0.3, 0.3, -0.3, 0.01, 10); c.position.set(Math.sin(az) * Math.cos(el) * 3, 0.18 + Math.sin(el) * 3, Math.cos(az) * Math.cos(el) * 3); c.lookAt(0, 0.18, -0.02); return c; });
+  const w = W / 2, h = H / 2;
+  cams.forEach((c, i) => { const x = (i % 2) * w, y = (1 - Math.floor(i / 2)) * h; c.left = -0.28 * w / h; c.right = 0.28 * w / h; c.top = 0.28; c.bottom = -0.28; c.updateProjectionMatrix(); renderer.setViewport(x, y, w, h); renderer.setScissor(x, y, w, h); renderer.render(scene, c); });
+  window.done = true;
+});
+</script></body></html>
