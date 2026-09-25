@@ -24,7 +24,36 @@
   [hidden] { display: none !important; }
   body.night { --ink: #f3ecf6; --ink-2: #c9bfd8; }
   body.night .dock { --ink: #41384d; --ink-2: #6d6479; }
-  .brand, .hint { transition: color 1.2s ease; }
+  .brand, .hint { transition: color 1.2s ease, opacity 0.4s ease; }
+  .dock { transition: opacity 0.4s ease; }
+  body.photo .brand, body.photo .hint, body.photo .dock,
+  body.recording .brand, body.recording .hint, body.recording .dock { opacity: 0; pointer-events: none; }
+  .bar {
+    position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+    display: flex; align-items: center; gap: 8px; padding: 8px;
+    border-radius: 999px; background: rgba(255, 250, 243, 0.8); border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 10px 30px rgba(65, 56, 77, 0.16);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2);
+    white-space: nowrap;
+  }
+  .bar-hint { font: 600 12.5px/1 var(--f-ui); color: #6d6479; padding: 0 6px 0 10px; }
+  .bar-text { font: 700 13px/1 var(--f-ui); color: #41384d; font-variant-numeric: tabular-nums; padding-right: 4px; }
+  .rec-dot { width: 10px; height: 10px; margin-left: 8px; border-radius: 50%; background: #e0584a; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+  .pill {
+    height: 36px; padding: 0 16px; border-radius: 999px; cursor: pointer;
+    border: 1px solid rgba(65, 56, 77, 0.14); background: rgba(255, 255, 255, 0.7); color: #41384d;
+    font: 700 13px/1 var(--f-ui);
+  }
+  .pill:hover { background: #fff; }
+  .pill.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pill.primary:hover { background: #d27a3c; }
+  .pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .toast {
+    position: fixed; left: 50%; top: calc(24px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+    padding: 10px 14px; border-radius: 12px; background: rgba(50, 43, 60, 0.9); color: #fbf5ec;
+    font: 600 13px/1.25 var(--f-ui); max-width: calc(100vw - 32px); box-sizing: border-box; text-align: center;
+  }
   html, body { height: 100%; margin: 0; }
   body {
     overflow: hidden;
@@ -140,9 +169,30 @@
   </button>
   <span class="sep"></span>
   <label class="field">Walls <input id="cut" type="range" min="0.3" max="2.7" step="0.01" value="2.7" aria-label="Wall height"></label>
+  <span class="sep"></span>
+  <button id="photo" type="button" aria-label="Photo mode" title="Photo mode">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 7.2c0-.9.7-1.6 1.6-1.6h1.9l1.3-1.9h4.4l1.3 1.9h1.9c.9 0 1.6.7 1.6 1.6v7.2c0 .9-.7 1.6-1.6 1.6H4.6c-.9 0-1.6-.7-1.6-1.6z"/><circle cx="10" cy="10.6" r="3"/></svg>
+  </button>
+  <button id="record" type="button" aria-label="Record a day as a video" title="Record a day">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="10" cy="10" r="6.5"/><circle cx="10" cy="10" r="3" fill="#e0584a" stroke="none"/></svg>
+  </button>
+  <button id="share" type="button" aria-label="Copy a link to this room" title="Share this room">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8.6 11.4a3.2 3.2 0 0 0 4.5 0l2.6-2.6a3.2 3.2 0 0 0-4.5-4.5l-1 1"/><path d="M11.4 8.6a3.2 3.2 0 0 0-4.5 0l-2.6 2.6a3.2 3.2 0 0 0 4.5 4.5l1-1"/></svg>
+  </button>
 </div>
 
 <div class="tip" id="tip" hidden></div>
+
+<div class="bar" id="photobar" hidden>
+  <span class="bar-hint">Tap the room to focus</span>
+  <button id="snap" type="button" class="pill primary">Save picture</button>
+  <button id="photoDone" type="button" class="pill">Done</button>
+</div>
+<div class="bar" id="rec" hidden>
+  <i class="rec-dot"></i><span class="bar-text" id="recText">Recording the day</span>
+  <button id="recStop" type="button" class="pill">Stop</button>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script type="importmap">
   { "imports": {
@@ -1517,12 +1567,13 @@ const paintMat = new THREE.ShaderMaterial({
     uTexel: { value: new THREE.Vector2() }, uNear: { value: 0.1 }, uFar: { value: 100 },
     uFrustum: { value: new THREE.Vector4() }, uInk: { value: new THREE.Color('#4a323c') },
     uNight: { value: 0 }, uTilt: { value: 0 }, uFocus: { value: 0.45 }, uAO: { value: 1 },
+    uSkyTop: { value: new THREE.Color('#bcd7ee') }, uSkyBottom: { value: new THREE.Color('#f1e9e2') },
   },
   vertexShader: quadVS,
   fragmentShader: `
     uniform sampler2D tColor, tNormal, tDepth, tBloom;
     uniform vec2 uTexel; uniform float uNear, uFar, uNight, uTilt, uFocus, uAO;
-    uniform vec4 uFrustum; uniform vec3 uInk;
+    uniform vec4 uFrustum; uniform vec3 uInk, uSkyTop, uSkyBottom;
     varying vec2 vUv;
     float D(vec2 uv){ return texture2D(tDepth, uv).x; }
     vec3 N(vec2 uv){ return normalize(texture2D(tNormal, uv).xyz * 2.0 - 1.0); }
@@ -1579,6 +1630,9 @@ const paintMat = new THREE.ShaderMaterial({
       vec3 bl = texture2D(tBloom, vUv).rgb;
       c += bl * vec3(1.0, 0.9, 0.78) * 0.55;
       float alpha = max(col.a, clamp(dot(bl, vec3(0.33)) * 0.6, 0.0, 1.0));
+      // the sky is part of the picture, so saved stills and videos keep it
+      c += mix(uSkyBottom, uSkyTop, vUv.y) * (1.0 - alpha);
+      alpha = 1.0;
       // grade: lavender in the shade, apricot in the light
       float lum = dot(c, vec3(0.2126, 0.7152, 0.0722)) / max(alpha, 0.001);
       vec3 shade = mix(vec3(0.94, 0.9, 1.06), vec3(0.9, 0.9, 1.1), uNight);
@@ -1637,13 +1691,14 @@ function sizeTargets() {
   paintMat.uniforms.uTexel.value.set(px / v.x, px / v.y);
 }
 const swapped = [];
-const look = { tilt: 0, tiltTarget: 0 };
+const look = { tilt: 0, tiltTarget: 0, focus: 0.45 };
 function renderFrame() {
   const u = paintMat.uniforms;
   u.uNear.value = camera.near; u.uFar.value = camera.far;
   u.uFrustum.value.set(camera.left / camera.zoom, camera.right / camera.zoom, camera.bottom / camera.zoom, camera.top / camera.zoom);
   u.uNight.value = sun.night || 0;
   u.uTilt.value = look.tilt;
+  u.uFocus.value = look.focus;
 
   renderer.setRenderTarget(colorRT);
   renderer.clear();
@@ -1774,11 +1829,13 @@ function itemsMoved() { rebuildGrid(); cat.decideT = Math.min(cat.decideT, 0.4);
 const snap = (v) => Math.round(v / 0.05) * 0.05;
 canvas.addEventListener('pointerdown', (e) => {
   canvas.focus();
+  if (photo.on) { look.focus = clamp(1 - e.clientY / innerHeight, 0.1, 0.9); return; }
   const p = pick(e);
   down = { x: e.clientX, y: e.clientY, p };
   canvas.setPointerCapture(e.pointerId);
 });
 canvas.addEventListener('pointermove', (e) => {
+  if (photo.on) return;
   if (down && !drag && down.p && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) {
     const it = down.p.item;
     if (it && (it.kind === 'floor' || it.kind === 'wall' || it.kind === 'cat')) {
@@ -1836,6 +1893,7 @@ canvas.addEventListener('pointerup', (e) => {
 });
 canvas.addEventListener('dblclick', (e) => { const p = pick(e); if (p?.item) turnItem(p.item); });
 addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && photo.on) setPhoto(false);
   if (e.key === 'r' || e.key === 'R') turnItem(drag?.it || hover?.item);
   if (e.key === 'q' || e.key === 'Q') turnView(-1);
   if (e.key === 'e' || e.key === 'E') turnView(1);
@@ -1875,6 +1933,116 @@ timeInput.value = Math.round(clock.h * 60);
 cutInput.value = backCut;
 timeInput.addEventListener('input', () => { clock.h = timeInput.value / 60; });
 cutInput.addEventListener('input', () => { backCut = parseFloat(cutInput.value); });
+/* ---------- photo mode, a recorded day, a shareable room ---------- */
+let toastTimer = 0;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, 2800);
+}
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+const clockLabel = () => { const h = Math.floor(clock.h), m = Math.floor((clock.h - h) * 60); return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; };
+
+const photo = { on: false };
+function setPhoto(on) {
+  photo.on = on;
+  document.body.classList.toggle('photo', on);
+  $('photobar').hidden = !on;
+  look.tiltTarget = on ? 1 : 0;
+  tip.hidden = true;
+  if (on) $('snap').focus(); else $('photo').focus();
+}
+$('photo').addEventListener('click', () => setPhoto(true));
+$('photoDone').addEventListener('click', () => setPhoto(false));
+$('snap').addEventListener('click', () => {
+  canvas.toBlob((b) => { if (b) { download(b, `cat-room-${clockLabel().replace(':', '')}.png`); toast('Picture saved'); } }, 'image/png');
+});
+
+const rec = { on: false, mr: null, t: 0 };
+function startRecording() {
+  if (!canvas.captureStream || !window.MediaRecorder) { toast('This browser cannot record the canvas'); return; }
+  const type = ['video/mp4;codecs=avc1', 'video/webm;codecs=vp9', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
+  const mr = new MediaRecorder(canvas.captureStream(30), { mimeType: type, videoBitsPerSecond: 12e6 });
+  const chunks = [];
+  mr.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  mr.onstop = () => {
+    const mime = mr.mimeType || 'video/webm';
+    download(new Blob(chunks, { type: mime }), `cat-room-day.${mime.includes('mp4') ? 'mp4' : 'webm'}`);
+    rec.on = false;
+    document.body.classList.remove('recording');
+    $('rec').hidden = true;
+    toast('Your day is saved');
+    $('record').focus();
+  };
+  Object.assign(rec, { on: true, mr, t: 0 });
+  if (!clock.playing) togglePlay();
+  document.body.classList.add('recording');
+  $('rec').hidden = false;
+  tip.hidden = true;
+  mr.start(250);
+  $('recStop').focus();
+}
+function stepRecording(dt) {
+  if (!rec.on) return;
+  rec.t += dt;
+  $('recText').textContent = `Recording the day · ${clockLabel()}`;
+  if (rec.t >= 24 && rec.mr.state === 'recording') rec.mr.stop();
+}
+$('record').addEventListener('click', startRecording);
+$('recStop').addEventListener('click', () => { if (rec.mr?.state === 'recording') rec.mr.stop(); });
+
+const movable = () => items.filter((it) => it.kind === 'floor' || it.kind === 'wall');
+function roomState() {
+  return {
+    v: 1, t: +clock.h.toFixed(2), a: Math.round((view.target / DEG - 45) / 90), c: +backCut.toFixed(2), o: windowState.open ? 1 : 0,
+    g: [monstera.growth, lemon.growth].map((v) => +v.toFixed(3)),
+    i: movable().map((it) => [it.name, +it.x.toFixed(3), +(it.kind === 'wall' ? it.group.position.y : it.z).toFixed(3), it.rot]),
+  };
+}
+function applyRoom(st) {
+  if (!st || st.v !== 1) return false;
+  clock.h = ((+st.t % 24) + 24) % 24;
+  view.target = view.angle = (45 + 90 * (st.a | 0)) * DEG;
+  backCut = clamp(+st.c || H, 0.3, H);
+  windowState.open = !!st.o; windowState.k = st.o ? 1 : 0;
+  if (Array.isArray(st.g)) { monstera.growth = clamp(+st.g[0] || 0, 0, 1); lemon.growth = clamp(+st.g[1] || 0, 0, 1); }
+  for (const [name, x, zy, rot] of st.i || []) {
+    const it = items.find((o) => o.name === name);
+    if (!it || !Number.isFinite(x) || !Number.isFinite(zy)) continue;
+    if (it.kind === 'wall') { it.x = clamp(x, -HW, HW); it.group.position.x = it.x; it.group.position.y = clamp(zy, 0.3, H); }
+    else { it.rot = (rot | 0) % 4; const f = footprint(it); it.x = clamp(x, -HW + f.w / 2, HW - f.w / 2); it.z = clamp(zy, -HW + f.d / 2, HW - f.d / 2); placeItem(it); }
+  }
+  return true;
+}
+const encodeRoom = (st) => btoa(unescape(encodeURIComponent(JSON.stringify(st)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const decodeRoom = (s) => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
+$('share').addEventListener('click', async () => {
+  const url = `${location.origin}${location.pathname}#room=${encodeRoom(roomState())}`;
+  history.replaceState(null, '', url);
+  try { await navigator.clipboard.writeText(url); toast('Link copied. It opens this exact room.'); }
+  catch { toast('The link to this room is in the address bar'); }
+});
+function restoreRoom() {
+  try {
+    if (location.hash.startsWith('#room=')) return applyRoom(decodeRoom(location.hash.slice(6)));
+  } catch { toast('That room link could not be read'); }
+  if ([...params.keys()].length) return false;
+  try { return applyRoom(JSON.parse(localStorage.getItem('cat-room') || 'null')); } catch { return false; }
+}
+let saveTimer = 0;
+function autosave(dt) {
+  saveTimer += dt;
+  if (saveTimer < 4) return;
+  saveTimer = 0;
+  try { localStorage.setItem('cat-room', JSON.stringify(roomState())); } catch { /* private mode: nothing to keep */ }
+}
+
 function togglePlay() {
   clock.playing = !clock.playing;
   $('icon-pause').hidden = !clock.playing;
@@ -1916,6 +2084,7 @@ const tintDusk = new THREE.Color('#ffc59a'), white = new THREE.Color('#ffffff');
 const lanternGlow = new THREE.Color('#ffe2b0');
 
 let last = performance.now(), time = 0, grownLast = -1;
+if (restoreRoom()) { timeInput.value = Math.round(clock.h * 60); cutInput.value = backCut; }
 rebuildGrid();
 updateWalls(-1);
 for (const k of WALL_KEYS) buildWall(k);
@@ -1926,7 +2095,7 @@ function frame(now) {
   last = now; time += dt;
 
   if (clock.playing && !drag) {
-    clock.h = (clock.h + dt / 45) % 24;
+    clock.h = (clock.h + dt * (rec.on ? 1 : 1 / 45)) % 24;
     timeInput.value = Math.round(clock.h * 60);
   }
   const hh = Math.floor(clock.h), mm = Math.floor((clock.h - hh) * 60);
@@ -1949,6 +2118,9 @@ function frame(now) {
   fill.intensity = lerp(0.12, 0.4, sun.day);
   const [top, bottom] = skyColors();
   document.body.style.setProperty('--sky-top', top);
+  paintMat.uniforms.uSkyTop.value.set(top);
+  paintMat.uniforms.uSkyBottom.value.set(bottom);
+  look.tilt += (look.tiltTarget - look.tilt) * damp(dt, 5);
   document.body.style.setProperty('--sky-bottom', bottom);
   document.body.classList.toggle('night', sun.night > 0.55);
   viewDay.color.copy(white).lerp(tintDusk, sun.warm * 0.6).multiplyScalar(lerp(0.55, 1, sun.day));
@@ -2068,6 +2240,8 @@ function frame(now) {
 
   stepPapers(dt, time);
   stepCat(dt, time);
+  stepRecording(dt);
+  autosave(dt);
   poseCat(dt, time);
 
   renderFrame();
