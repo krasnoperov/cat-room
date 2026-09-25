@@ -191,6 +191,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.localClippingEnabled = true;
 renderer.setClearColor(0x000000, 0);
 const scene = new THREE.Scene();
+/* Layer 1 holds what the ink pass must not outline: light, air, glass, the sun's invisible room. */
+const noInk = (o) => { o.traverse((c) => c.layers.set(1)); return o; };
 
 /* ---------------- materials ---------------- */
 const gradData = new Uint8Array([120, 120, 120, 255, 178, 178, 178, 255, 222, 222, 222, 255, 255, 255, 255, 255]);
@@ -223,11 +225,11 @@ const planks = canvasTex(1024, 1024, (g, w, h) => {
     let x = -r() * 320;
     while (x < w) {
       const len = 280 + r() * 380;
-      g.fillStyle = `hsl(${29 + r() * 6}, ${40 + r() * 10}%, ${67 + r() * 8}%)`;
+      g.fillStyle = `hsl(${30 + r() * 3}, ${44 + r() * 5}%, ${69 + r() * 4}%)`;
       g.fillRect(x, i * rh, len, rh);
       g.lineWidth = 1.4;
-      for (let k = 0; k < 6; k++) {
-        g.strokeStyle = `rgba(125, 72, 32, ${0.06 + r() * 0.08})`;
+      for (let k = 0; k < 3; k++) {
+        g.strokeStyle = `rgba(125, 72, 32, ${0.04 + r() * 0.05})`;
         const y0 = i * rh + 6 + r() * (rh - 12);
         g.beginPath(); g.moveTo(x, y0);
         g.bezierCurveTo(x + len * 0.3, y0 + (r() - 0.5) * 12, x + len * 0.65, y0 + (r() - 0.5) * 12, x + len, y0 + (r() - 0.5) * 8);
@@ -268,8 +270,8 @@ const paperTex = canvasTex(256, 360, (g, w, h) => {
 });
 
 const M = {
-  wall: toon('#ffffff', { map: plaster }),
-  floor: toon('#ffffff', { map: planks }),
+  wall: toon('#fbf4ec'),
+  floor: toon('#fff4ea', { map: planks }),
   wood: toon('#c98d57'),
   woodDark: toon('#9b6440'),
   woodLight: toon('#dcb07c'),
@@ -298,7 +300,7 @@ const M = {
 
 /* Section caps: where a wall is cut, its top is a hatched section. */
 const hatch = new THREE.ShaderMaterial({
-  uniforms: { uA: { value: new THREE.Color('#7d6a80') }, uB: { value: new THREE.Color('#a18ea3') } },
+  uniforms: { uA: { value: new THREE.Color('#b3a2c4') }, uB: { value: new THREE.Color('#d2c6dd') } },
   vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader: `uniform vec3 uA; uniform vec3 uB; varying vec3 vW;
     void main(){ float s = fract((vW.x + vW.z + vW.y) * 11.0); float l = smoothstep(0.0, 0.06, s) * smoothstep(0.34, 0.28, s);
@@ -338,10 +340,10 @@ function clipTo(root, key) {
    STRUCTURE: floor slab, walls (rebuilt when cut), shadow-only shell.
    =================================================================== */
 const floor = new THREE.Mesh(
-  new THREE.BoxGeometry(2 * HW + 2 * T, 0.16, 2 * HW + 2 * T),
+  new THREE.BoxGeometry(2 * HW + 2 * T, 0.09, 2 * HW + 2 * T),
   [hatch, hatch, M.floor, hatch, hatch, hatch],
 );
-floor.position.y = -0.08;
+floor.position.y = -0.045;
 floor.receiveShadow = true;
 scene.add(floor);
 
@@ -386,6 +388,7 @@ const ghost = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false
   ceil.position.y = H + 0.05;
   shell.add(ceil);
   shell.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  noInk(shell);
   scene.add(shell);
 }
 
@@ -400,6 +403,7 @@ const portal = new THREE.Mesh(
 portal.rotation.y = Math.PI / 2;
 portal.position.set(-HW - T / 2, winCenter.y, winCenter.z);
 portal.renderOrder = 1;
+noInk(portal);
 scene.add(portal);
 
 const viewDay = new THREE.MeshBasicMaterial({ map: tex('img/view-day.webp'), stencilWrite: true, stencilRef: 1, stencilFunc: THREE.EqualStencilFunc });
@@ -412,7 +416,7 @@ for (const [mat, dx, order] of [[viewDay, 0, 2], [viewNight, 0.01, 3]]) {
   p.userData.dx = dx;
   p.renderOrder = order;
   scene.add(p);
-  viewPlanes.push(p);
+  viewPlanes.push(noInk(p));
 }
 /* The city stays centred in the window from whichever side you look. */
 const VIEW_X = -HW - 3;
@@ -456,6 +460,7 @@ function makeSash(hingeZ, dir) {
   const mid = bar(0.03, 0.025, w, mat); mid.position.y = h * 0.62;
   const glass = new THREE.Mesh(new THREE.PlaneGeometry(w - f, h - f), M.glass);
   glass.rotation.y = Math.PI / 2; glass.position.y = h / 2;
+  noInk(glass);
   panel.add(top, bot, s1, s2, mid, glass);
   pivot.add(panel);
   windowGroup.add(pivot);
@@ -614,7 +619,7 @@ for (let i = 0; i < 7; i++) {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: steamTex, transparent: true, depthWrite: false, opacity: 0 }));
   s.userData.phase = i / 7;
   scene.add(s);
-  tea.steam.push(s);
+  tea.steam.push(noInk(s));
 }
 
 /* --- plants --- */
@@ -910,6 +915,9 @@ scene.add(fill, fill.target);
 const lanternLight = new THREE.PointLight('#ffbf78', 0, 7, 1.4);
 lanternLight.position.copy(lanternItem.group.position);
 scene.add(lanternLight);
+/* light bouncing off the sun patch warms the room around it */
+const bounce = new THREE.PointLight('#ffc596', 0, 5.5, 1);
+scene.add(bounce);
 
 const sun = { dir: new V3(), el: 0, day: 0, warm: 0 };
 function updateSun(h) {
@@ -949,7 +957,7 @@ const beamMat = new THREE.ShaderMaterial({
 const beam = new THREE.Mesh(beamGeo, beamMat);
 beam.frustumCulled = false;
 beam.renderOrder = 5;
-scene.add(beam);
+scene.add(noInk(beam));
 
 const DUST = 220;
 const dustPos = new Float32Array(DUST * 3), dustA = new Float32Array(DUST), dustSeed = [];
@@ -972,7 +980,7 @@ const dustMat = new THREE.ShaderMaterial({
 const dust = new THREE.Points(dustGeo, dustMat);
 dust.frustumCulled = false;
 dust.renderOrder = 6;
-scene.add(dust);
+scene.add(noInk(dust));
 
 function updateBeam() {
   const pos = beamGeo.attributes.position;
@@ -991,6 +999,13 @@ function updateBeam() {
   });
   pos.needsUpdate = true;
   beamGeo.computeBoundingSphere();
+  const patch = new V3();
+  for (let i = 4; i < 8; i++) patch.add(new V3().fromBufferAttribute(pos, i));
+  patch.multiplyScalar(0.25);
+  patch.x = clamp(patch.x, -HW + 0.3, HW - 0.3); patch.z = clamp(patch.z, -HW + 0.3, HW - 0.3);
+  patch.y = 0.35;
+  bounce.position.copy(patch);
+  bounce.intensity = 0.8 * sun.day * (top > WIN.y0 ? 1 : 0);
   beamMat.uniforms.uO.value = top > WIN.y0 ? 0.2 * sun.day * (0.55 + 0.45 * sun.warm) : 0;
 }
 
@@ -1360,9 +1375,108 @@ function stepPapers(dt, time) {
 }
 
 /* ===================================================================
+   INK: the scene is drawn once for colour and once for normals and
+   depth; a last pass inks the edges, grades the colour and adds paper.
+   =================================================================== */
+const colorRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4, stencilBuffer: true });
+const normalRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthTexture: new THREE.DepthTexture(1, 1) });
+const inkQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+  uniforms: {
+    tColor: { value: colorRT.texture }, tNormal: { value: normalRT.texture }, tDepth: { value: normalRT.depthTexture },
+    uTexel: { value: new THREE.Vector2() }, uRange: { value: 99.9 }, uInk: { value: new THREE.Color('#4a323c') },
+    uNight: { value: 0 },
+  },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tColor, tNormal, tDepth; uniform vec2 uTexel; uniform float uRange, uNight; uniform vec3 uInk;
+    varying vec2 vUv;
+    float D(vec2 o){ return texture2D(tDepth, vUv + o * uTexel).x; }
+    vec3 N(vec2 o){ return texture2D(tNormal, vUv + o * uTexel).xyz * 2.0 - 1.0; }
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }
+    void main(){
+      vec4 col = texture2D(tColor, vUv);
+      float dc = D(vec2(0));
+      float edge = 0.0;
+      if (dc < 0.9999) {
+        float lap = 0.0;
+        lap += abs(D(vec2(-1, 0)) + D(vec2(1, 0)) - 2.0 * dc);
+        lap += abs(D(vec2(0, -1)) + D(vec2(0, 1)) - 2.0 * dc);
+        lap += 0.5 * abs(D(vec2(-1, -1)) + D(vec2(1, 1)) - 2.0 * dc);
+        lap += 0.5 * abs(D(vec2(-1, 1)) + D(vec2(1, -1)) - 2.0 * dc);
+        float dEdge = smoothstep(0.012, 0.035, lap * uRange);
+        vec3 nc = N(vec2(0));
+        float nd = 0.0;
+        nd = max(nd, 1.0 - dot(nc, N(vec2(1, 0))));
+        nd = max(nd, 1.0 - dot(nc, N(vec2(-1, 0))));
+        nd = max(nd, 1.0 - dot(nc, N(vec2(0, 1))));
+        nd = max(nd, 1.0 - dot(nc, N(vec2(0, -1))));
+        float nEdge = smoothstep(0.22, 0.5, nd);
+        // ink wobbles a little, like a pen
+        float pen = 0.75 + 0.25 * vnoise(gl_FragCoord.xy * 0.08);
+        edge = max(dEdge, nEdge) * pen;
+      }
+      vec3 c = col.rgb;
+      c = mix(c, c * uInk * 1.9, edge * 0.85);
+      // grade: lavender in the shade, apricot in the light
+      float lum = dot(c, vec3(0.2126, 0.7152, 0.0722)) / max(col.a, 0.001);
+      vec3 shade = mix(vec3(0.94, 0.9, 1.06), vec3(0.9, 0.9, 1.1), uNight);
+      c *= mix(shade, vec3(1.05, 1.0, 0.93), smoothstep(0.08, 0.7, lum));
+      // paper: fine grain and slow fibres
+      float grain = hash(gl_FragCoord.xy) - 0.5;
+      float fibre = vnoise(gl_FragCoord.xy * vec2(0.012, 0.03)) - 0.5;
+      c *= 1.0 + grain * 0.045 + fibre * 0.05;
+      gl_FragColor = vec4(c, col.a);
+      #include <colorspace_fragment>
+    }`,
+  depthTest: false, depthWrite: false,
+}));
+const inkScene = new THREE.Scene();
+inkScene.add(inkQuad);
+const inkCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const normalMats = new Map();
+function normalMatFor(m) {
+  const src = Array.isArray(m) ? m[0] : m;
+  const planes = src.clippingPlanes || null;
+  const key = (planes ? planes[0].__id || (planes[0].__id = Math.random()) : 0) + ':' + src.side;
+  if (!normalMats.has(key)) normalMats.set(key, new THREE.MeshNormalMaterial({ side: src.side, clippingPlanes: planes }));
+  return normalMats.get(key);
+}
+function sizeTargets() {
+  const v = renderer.getDrawingBufferSize(new THREE.Vector2());
+  colorRT.setSize(v.x, v.y);
+  normalRT.setSize(v.x, v.y);
+  const px = Math.max(1, renderer.getPixelRatio() * 0.8);
+  inkQuad.material.uniforms.uTexel.value.set(px / v.x, px / v.y);
+}
+const swapped = [];
+function renderFrame() {
+  inkQuad.material.uniforms.uRange.value = camera.far - camera.near;
+  inkQuad.material.uniforms.uNight.value = sun.night || 0;
+  renderer.setRenderTarget(colorRT);
+  renderer.clear();
+  renderer.render(scene, camera);
+  camera.layers.set(0);
+  scene.traverseVisible((o) => { if (o.isMesh && o.layers.test(camera.layers)) { swapped.push(o, o.material); o.material = normalMatFor(o.material); } });
+  renderer.setRenderTarget(normalRT);
+  renderer.setClearColor(0x808080, 0);
+  renderer.clear();
+  renderer.render(scene, camera);
+  renderer.setClearColor(0x000000, 0);
+  for (let i = 0; i < swapped.length; i += 2) swapped[i].material = swapped[i + 1];
+  swapped.length = 0;
+  camera.layers.enable(1);
+  renderer.setRenderTarget(null);
+  renderer.render(inkScene, inkCam);
+}
+
+/* ===================================================================
    CAMERA: orthographic, turns in quarter steps.
    =================================================================== */
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+camera.layers.enable(1);
+sunLight.shadow.camera.layers.enable(1);
 const view = { angle: (45 + 90 * num('rot', 0)) * DEG, target: (45 + 90 * num('rot', 0)) * DEG, zoom: 1, center: new V3(0, 0.95, 0) };
 function placeCamera() {
   const r = 20, el = 30 * DEG;
@@ -1373,6 +1487,7 @@ function placeCamera() {
 function resize() {
   const w = innerWidth, h = innerHeight, aspect = w / h;
   renderer.setSize(w, h, false);
+  sizeTargets();
   let half = Math.max(3.05, 3.55 / aspect);
   if (w < 720) half = Math.max(3.3, 3.2 / aspect);
   half /= view.zoom;
@@ -1597,8 +1712,8 @@ function skyColors() {
 }
 
 const sunWarm = new THREE.Color('#ffb46e'), sunNoon = new THREE.Color('#fff4de');
-const hemiDaySky = new THREE.Color('#fff0e2'), hemiNightSky = new THREE.Color('#7a74b8');
-const hemiDayGround = new THREE.Color('#e6c9b6'), hemiNightGround = new THREE.Color('#4a4068');
+const hemiDaySky = new THREE.Color('#f3ecff'), hemiNightSky = new THREE.Color('#7a74b8');
+const hemiDayGround = new THREE.Color('#e8d3e6'), hemiNightGround = new THREE.Color('#4a4068');
 const tintDusk = new THREE.Color('#ffc59a'), white = new THREE.Color('#ffffff');
 const lanternGlow = new THREE.Color('#ffe2b0');
 
@@ -1756,7 +1871,7 @@ function frame(now) {
   stepCat(dt, time);
   poseCat(dt, time);
 
-  renderer.render(scene, camera);
+  renderFrame();
   window.__room.frames++;
   requestAnimationFrame(frame);
 }
