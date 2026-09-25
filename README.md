@@ -33,6 +33,12 @@ Open http://localhost:8123/.
   hops onto the seat, keeps away from a wet window, and now and then
   knocks a leaf off the monstera.
 - **Books** can be pulled out; the neighbour leans into the gap.
+- **Room radio** plays generated lo-fi (Eleven Music via makefx) and the
+  room's own sounds: the city by day and crickets by night through an open
+  window, rain when it rains. Pet the cat (click it) and it purrs.
+- **The cat** is a small skeleton: the torso pivots at the pelvis, legs are
+  drawn from joint to paw every frame and the tail grows from the pelvis,
+  so it sits on its haunches, walks with its tail up and sleeps as a loaf.
 
 ## Controls
 
@@ -41,7 +47,7 @@ Open http://localhost:8123/.
 - Turn the room in quarter steps (`Q` / `E`), lower the walls to look in
   from any side, scrub the time of day, pause time (`Space`).
 - **Photo mode**: tilt-shift miniature focus, tap to focus, save a PNG.
-- **Record a day**: 24 hours in 24 seconds, saved as MP4 or WebM.
+- **Record a day**: 24 hours in 24 seconds, saved as MP4 or WebM, with the radio if it is on.
 - **Share**: copies a link that opens this exact room. The room also
   saves itself in the browser.
 

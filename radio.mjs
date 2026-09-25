@@ -1,0 +1,25 @@
+import { chromium } from '/home/alv/projects/makefx/node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/index.mjs';
+import fs from 'node:fs';
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
+const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, acceptDownloads: true });
+const page = await ctx.newPage();
+const logs = [];
+page.on('pageerror', (e) => logs.push('pageerror: ' + e.message));
+page.on('console', (m) => { if (m.type() === 'error') logs.push(m.text()); });
+await page.goto('http://localhost:8123/index.html?t=21&paused=1');
+await page.waitForFunction(() => window.__room && window.__room.frames > 5);
+await page.click('#radioBtn');
+await page.waitForTimeout(3500);
+console.log(await page.evaluate(() => { const r = window.__room.radio; return { on: r.on, t: +r.el.currentTime.toFixed(1), src: r.el.src.split('/').pop(), title: document.getElementById('trackTitle').textContent, chip: !document.getElementById('radio').hidden, layers: Object.fromEntries(Object.entries(r.layers).map(([k, g]) => [k, +g.gain.value.toFixed(2)])), state: r.ctx.state }; }));
+// pet the cat
+const [x, y] = await page.evaluate(() => window.__room.project(window.__room.cat.pos.clone().setY(window.__room.cat.pos.y + 0.1).toArray()));
+await page.mouse.click(x, y); await page.waitForTimeout(1500);
+console.log('purr gain after petting:', await page.evaluate(() => +window.__room.radio.layers.purr.gain.value.toFixed(2)), 'petT', await page.evaluate(() => window.__room.cat.petT.toFixed(1)));
+await page.click('#nextTrack'); await page.waitForTimeout(800);
+console.log('next ->', await page.textContent('#trackTitle'));
+await page.click('#record'); await page.waitForTimeout(4000);
+const dl = page.waitForEvent('download'); await page.click('#recStop');
+const d = await dl; const p = await d.path(); fs.copyFileSync(p, '/tmp/claude-1000/-home-alv-projects-makefx--claude-worktrees-competent-bassi-43465d/9b40bd09-1b02-4978-8bc9-8fd3a8a9116f/scratchpad/rec.' + d.suggestedFilename().split('.').pop());
+console.log('recorded', d.suggestedFilename(), fs.statSync(p).size);
+console.log(logs.join('\n') || 'no errors');
+await browser.close();
