@@ -645,8 +645,90 @@ function leafShape(slits) {
   s.lineTo(0, 0.06);
   return s;
 }
-const monsteraLeafGeo = new THREE.ShapeGeometry(leafShape(true), 3);
 const heartLeafGeo = new THREE.ShapeGeometry(leafShape(false), 2);
+
+/* Painted leaves: a colour texture and a cut-out mask drawn from the same
+   path, so the fenestrations and splits are real holes the ink pass sees. */
+function paintLeaf(kind, seed) {
+  const S = 512, r = rng(seed);
+  const col = document.createElement('canvas'), msk = document.createElement('canvas');
+  col.width = col.height = msk.width = msk.height = S;
+  const g = col.getContext('2d'), m = msk.getContext('2d');
+  const base = [S / 2, S - 14], tipY = 18;
+  const pts = [];
+  for (let i = 0; i <= 40; i++) {
+    const t = i / 40;
+    let w = (kind === 'monstera' ? 0.47 : 0.4) * S * Math.sin(Math.PI * Math.pow(t, 0.78)) * (1 - 0.25 * t);
+    if (t < 0.14) w += (0.14 - t) * S * (kind === 'monstera' ? 1.5 : 1.1);
+    pts.push([w, base[1] - t * (base[1] - tipY)]);
+  }
+  const outline = (ctx) => {
+    ctx.beginPath();
+    ctx.moveTo(base[0], base[1] - 30);
+    for (const [w, y] of pts) ctx.lineTo(base[0] + w, y);
+    for (let i = pts.length - 1; i >= 0; i--) ctx.lineTo(base[0] - pts[i][0], pts[i][1]);
+    ctx.closePath();
+  };
+  // colour
+  const grad = g.createLinearGradient(0, S, S, 0);
+  if (kind === 'monstera') { grad.addColorStop(0, '#3f7c43'); grad.addColorStop(1, '#6caa5c'); }
+  else { grad.addColorStop(0, '#4c8f45'); grad.addColorStop(1, '#8cc06a'); }
+  outline(g); g.fillStyle = grad; g.fill();
+  if (kind === 'pothos') {
+    // golden variegation streaks
+    g.save(); outline(g); g.clip();
+    for (let i = 0; i < 7; i++) {
+      g.strokeStyle = `rgba(236, 222, 140, ${0.25 + r() * 0.3})`; g.lineWidth = 6 + r() * 14;
+      g.beginPath(); const x = base[0] + (r() - 0.5) * 200; g.moveTo(x, S); g.quadraticCurveTo(x + (r() - 0.5) * 120, S * 0.5, base[0] + (r() - 0.5) * 60, tipY); g.stroke();
+    }
+    g.restore();
+  }
+  // midrib and veins
+  g.strokeStyle = 'rgba(214, 236, 170, 0.75)'; g.lineWidth = 7;
+  g.beginPath(); g.moveTo(base[0], base[1] - 10); g.quadraticCurveTo(base[0] + 8, S * 0.5, base[0], tipY + 12); g.stroke();
+  g.lineWidth = 3; g.strokeStyle = 'rgba(214, 236, 170, 0.45)';
+  const splits = kind === 'monstera' ? [0.26, 0.4, 0.54, 0.67, 0.79] : [];
+  const veinTs = kind === 'monstera' ? [0.2, 0.33, 0.47, 0.6, 0.73, 0.85] : [0.25, 0.45, 0.65];
+  for (const side of [-1, 1]) for (const t of veinTs) {
+    const [w, y] = pts[Math.round(t * 40)];
+    g.beginPath(); g.moveTo(base[0], y + 20); g.quadraticCurveTo(base[0] + side * w * 0.5, y + 6, base[0] + side * w * 0.95, y - 18); g.stroke();
+  }
+  // soft light on one half
+  g.save(); outline(g); g.clip();
+  const sh = g.createLinearGradient(base[0] - 200, 0, base[0] + 200, 0);
+  sh.addColorStop(0, 'rgba(255,255,220,0.12)'); sh.addColorStop(0.5, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(20,50,30,0.14)');
+  g.fillStyle = sh; g.fillRect(0, 0, S, S); g.restore();
+  // mask
+  m.fillStyle = '#000'; m.fillRect(0, 0, S, S);
+  outline(m); m.fillStyle = '#fff'; m.fill();
+  m.strokeStyle = '#000'; m.fillStyle = '#000'; m.lineCap = 'round';
+  for (const side of [-1, 1]) for (const t of splits) {
+    const [w, y] = pts[Math.round(t * 40)];
+    const depth = 0.45 + r() * 0.2;
+    m.lineWidth = 9 + r() * 5;
+    m.beginPath(); m.moveTo(base[0] + side * (w + 12), y - 30); m.lineTo(base[0] + side * w * (1 - depth), y + 4); m.stroke();
+  }
+  if (kind === 'monstera') for (const side of [-1, 1]) for (let k = 0; k < 4; k++) {
+    const t = 0.3 + k * 0.14 + r() * 0.03, [w, y] = pts[Math.round(t * 40)];
+    m.beginPath(); m.ellipse(base[0] + side * w * 0.3, y + 6, 7 + r() * 5, 14 + r() * 6, side * 0.5, 0, Math.PI * 2); m.fill();
+  }
+  const ct = new THREE.CanvasTexture(col); ct.colorSpace = THREE.SRGBColorSpace; ct.anisotropy = 8;
+  const mt = new THREE.CanvasTexture(msk);
+  return toon('#ffffff', { map: ct, alphaMap: mt, alphaTest: 0.5, side: THREE.DoubleSide });
+}
+/* a leaf is a gently cupped plane with its stalk at the origin */
+function leafGeo(seg = 6) {
+  const geo = new THREE.PlaneGeometry(1, 1, seg, seg);
+  geo.translate(0, 0.5, 0);
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i); p.setZ(i, -0.18 * y * y + 0.22 * x * x); }
+  geo.computeVertexNormals();
+  return geo;
+}
+const monsteraLeafGeo = leafGeo(8);
+const smallLeafGeo = leafGeo(3);
+const monsteraMats = [paintLeaf('monstera', 1), paintLeaf('monstera', 2)];
+const pothosMats = [paintLeaf('pothos', 3), paintLeaf('pothos', 4)];
 
 function makePot(r, h, mat = M.terracotta) {
   const g = new THREE.Group();
@@ -672,12 +754,12 @@ const monsteraItem = (() => {
     const tip = new V3(Math.cos(a) * len * Math.sin(tilt), 0.28 + len * Math.cos(tilt) * 0.95, Math.sin(a) * len * Math.sin(tilt));
     const mid = base.clone().lerp(tip, 0.5).add(new V3(0, 0.08, 0));
     const stem = new THREE.Mesh(new THREE.TubeGeometry(new THREE.QuadraticBezierCurve3(base, mid, tip), 8, 0.008, 5), M.stem);
-    const leaf = new THREE.Mesh(monsteraLeafGeo, i % 3 ? M.leaf : M.leafLight);
+    const leaf = new THREE.Mesh(monsteraLeafGeo, monsteraMats[i % 2]);
     const holder = new THREE.Group();
     holder.position.copy(tip);
     holder.rotation.y = -a + Math.PI / 2;
     leaf.rotation.x = -1.1 + r() * 0.35;
-    const size = 0.3 + r() * 0.1;
+    const size = 0.34 + r() * 0.12;
     leaf.scale.setScalar(size);
     holder.add(leaf);
     const unit = new THREE.Group();
@@ -695,7 +777,7 @@ const monsteraItem = (() => {
 })();
 function monsteraCount() { return 4 + Math.floor(monstera.growth * 5.01); }
 
-const lemon = { growth: num('grow', 0.1), fruit: [], lit: 0 };
+const lemon = { growth: num('grow', 0.4), fruit: [], lit: 0 };
 const lemonItem = (() => {
   const g = new THREE.Group();
   g.add(makePot(0.14, 0.26, toon('#e8dccb')));
@@ -812,9 +894,9 @@ function hangingPothos(x, y, seed) {
   for (let v = 0; v < 3; v++) {
     const vine = { leaves: [], max: 10 + Math.floor(r() * 5), dx: (r() - 0.5) * 0.12, dz: 0.07 + r() * 0.05 };
     for (let i = 0; i < vine.max; i++) {
-      const lf = new THREE.Mesh(heartLeafGeo, i % 2 ? M.leaf : M.leafLight);
+      const lf = new THREE.Mesh(smallLeafGeo, pothosMats[i % 2]);
       lf.scale.setScalar(0.001);
-      lf.userData.s = 0.055 + r() * 0.02;
+      lf.userData.s = 0.075 + r() * 0.025;
       lf.userData.ry = (r() - 0.5) * 1.6;
       lf.userData.sway = r() * 6;
       wallStuff.add(lf);
@@ -1512,15 +1594,36 @@ const paintMat = new THREE.ShaderMaterial({
 });
 
 const normalMats = new Map();
+/* view-space normals for cut-out leaves: MeshNormalMaterial ignores masks */
+function cutNormalMat(mask, side, planes) {
+  return new THREE.ShaderMaterial({
+    uniforms: { tA: { value: mask } }, side, clipping: !!planes, clippingPlanes: planes,
+    vertexShader: `
+      #include <clipping_planes_pars_vertex>
+      varying vec3 vN; varying vec2 vUv;
+      void main(){
+        vUv = uv; vN = normalize(normalMatrix * normal);
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        #include <clipping_planes_vertex>
+      }`,
+    fragmentShader: `
+      #include <clipping_planes_pars_fragment>
+      uniform sampler2D tA; varying vec3 vN; varying vec2 vUv;
+      void main(){
+        #include <clipping_planes_fragment>
+        if (texture2D(tA, vUv).g < 0.5) discard;
+        vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
+        gl_FragColor = vec4(n * 0.5 + 0.5, 1.0);
+      }`,
+  });
+}
 function normalMatFor(m) {
   const src = Array.isArray(m) ? m[0] : m;
   const planes = src.clippingPlanes || null;
-  const cut = src.alphaTest > 0 ? src.map || src.alphaMap : null;
+  const cut = src.alphaTest > 0 ? src.alphaMap || src.map : null;
   const key = (planes ? planes[0].__id || (planes[0].__id = Math.random()) : 0) + ':' + src.side + ':' + (cut ? cut.uuid : '');
-  if (!normalMats.has(key)) {
-    normalMats.set(key, new THREE.MeshNormalMaterial({ side: src.side, clippingPlanes: planes }));
-    if (cut) { const nm = normalMats.get(key); nm.alphaMap = cut; nm.alphaTest = src.alphaTest; nm.transparent = false; }
-  }
+  if (!normalMats.has(key)) normalMats.set(key, cut ? cutNormalMat(cut, src.side, planes) : new THREE.MeshNormalMaterial({ side: src.side, clippingPlanes: planes }));
   return normalMats.get(key);
 }
 function sizeTargets() {
