@@ -1,0 +1,7 @@
+{
+  "name": "cat-room",
+  "compatibility_date": "2026-09-01",
+  // static site: build.sh collects index.html and img/ into dist/
+  "assets": { "directory": "./dist" },
+  "routes": [{ "pattern": "rooms.krasnoperov.me", "custom_domain": true }]
+}

@@ -6,7 +6,7 @@ const page = await browser.newPage({ viewport: { width: +w, height: +h }, device
 const logs = [];
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(m.type() + ': ' + m.text()); });
 page.on('pageerror', (e) => logs.push('pageerror: ' + e.message));
-await page.goto('http://localhost:8123/index.html?' + q);
+await page.goto((process.env.BASE || 'http://localhost:8123/index.html') + '?' + q);
 await page.waitForFunction(() => window.__room && window.__room.frames > 5, null, { timeout: 60000 }).catch(() => logs.push('no frames'));
 if (script) await page.evaluate(script);
 await page.waitForTimeout(+wait);
