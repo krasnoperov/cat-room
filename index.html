@@ -1067,7 +1067,7 @@ const lanternPool = noInk(new THREE.Mesh(
   new THREE.CircleGeometry(1.5, 48),
   new THREE.MeshBasicMaterial({ map: canvasTex(128, 128, (g) => {
     const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-    gr.addColorStop(0, 'rgba(255, 190, 120, 1)'); gr.addColorStop(0.45, 'rgba(255, 170, 100, 0.45)'); gr.addColorStop(1, 'rgba(255, 160, 90, 0)');
+    gr.addColorStop(0, 'rgba(255, 214, 165, 1)'); gr.addColorStop(0.45, 'rgba(255, 200, 150, 0.4)'); gr.addColorStop(1, 'rgba(255, 190, 140, 0)');
     g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
   }), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }),
 ));
@@ -1790,7 +1790,7 @@ function renderFrame() {
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
 camera.layers.enable(1);
 sunLight.shadow.camera.layers.enable(1);
-const view = { angle: (45 + 90 * num('rot', 0)) * DEG, target: (45 + 90 * num('rot', 0)) * DEG, zoom: 1, center: new V3(0, 0.95, 0) };
+const view = { angle: (45 + 90 * num('rot', 0)) * DEG, target: (45 + 90 * num('rot', 0)) * DEG, zoom: num('zoom', 1), center: new V3(0, 0.95, 0) };
 function placeCamera() {
   const r = 20, el = 30 * DEG;
   camera.position.set(Math.cos(view.angle) * Math.cos(el) * r, Math.sin(el) * r, Math.sin(view.angle) * Math.cos(el) * r).add(view.center);
@@ -1938,19 +1938,23 @@ canvas.addEventListener('pointermove', (e) => {
   const movable = p?.item && ['floor', 'wall', 'cat'].includes(p.item.kind);
   canvas.className = p?.part?.click || p?.item?.click ? 'point' : movable ? 'grab' : '';
 });
-canvas.addEventListener('pointerup', (e) => {
+function endPointer(click) {
   if (drag) {
     const it = drag.it;
     if (it.kind === 'cat') { dropCat(); }
     else if (it.kind === 'floor') { it.group.position.y = 0; itemsMoved(); }
     drag = null;
-  } else if (down?.p) {
+  } else if (click && down?.p) {
     const c = down.p.part?.click || down.p.item?.click;
     if (c) c();
   }
   down = null;
   canvas.className = '';
-});
+}
+canvas.addEventListener('pointerup', () => endPointer(true));
+/* a touch the browser takes over (scroll, gesture) must still put things down */
+canvas.addEventListener('pointercancel', () => endPointer(false));
+canvas.addEventListener('lostpointercapture', () => { if (drag || down) endPointer(false); });
 canvas.addEventListener('dblclick', (e) => { const p = pick(e); if (p?.item) turnItem(p.item); });
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && photo.on) setPhoto(false);
@@ -2073,18 +2077,27 @@ function roomState() {
   };
 }
 function applyRoom(st) {
-  if (!st || st.v !== 1) return false;
+  if (!st || st.v !== 1 || !Number.isFinite(+st.t)) return false;
   clock.h = ((+st.t % 24) + 24) % 24;
   view.target = view.angle = (45 + 90 * (st.a | 0)) * DEG;
   backCut = clamp(+st.c || H, 0.3, H);
   windowState.open = !!st.o; windowState.k = st.o ? 1 : 0;
   weather.rain = !!st.r; weather.k = st.r ? 1 : 0;
   if (Array.isArray(st.g)) { monstera.growth = clamp(+st.g[0] || 0, 0, 1); lemon.growth = clamp(+st.g[1] || 0, 0, 1); }
+  // place everything first, then send back only what still collides, so swapped pieces restore in any order
+  const before = new Map(movable().map((it) => [it, { x: it.x, z: it.z, rot: it.rot }]));
   for (const [name, x, zy, rot] of st.i || []) {
     const it = items.find((o) => o.name === name);
     if (!it || !Number.isFinite(x) || !Number.isFinite(zy)) continue;
     if (it.kind === 'wall') { it.x = clamp(x, -HW, HW); it.group.position.x = it.x; it.group.position.y = clamp(zy, 0.3, H); }
-    else { it.rot = (rot | 0) % 4; const f = footprint(it); it.x = clamp(x, -HW + f.w / 2, HW - f.w / 2); it.z = clamp(zy, -HW + f.d / 2, HW - f.d / 2); placeItem(it); }
+    else {
+      const r = (((rot | 0) % 4) + 4) % 4, f = footprint({ ...it, rot: r });
+      Object.assign(it, { rot: r, x: clamp(x, -HW + f.w / 2, HW - f.w / 2), z: clamp(zy, -HW + f.d / 2, HW - f.d / 2) });
+    }
+  }
+  for (const it of movable()) {
+    if (it.kind === 'floor' && overlaps(it, it.x, it.z, it.rot)) Object.assign(it, before.get(it));
+    if (it.kind === 'floor') placeItem(it);
   }
   return true;
 }
@@ -2154,6 +2167,9 @@ const tintDusk = new THREE.Color('#ffc59a'), white = new THREE.Color('#ffffff'),
 const lanternGlow = new THREE.Color('#ffe2b0');
 
 let last = performance.now(), time = 0, grownLast = -1;
+/* ?fixed renders only when asked, one 1/30 s step at a time, for frame-exact videos */
+const FIXED = params.has('fixed');
+const SPEED = num('speed', 1 / 45);
 if (restoreRoom()) { timeInput.value = Math.round(clock.h * 60); cutInput.value = backCut; setRain(weather.rain); }
 rebuildGrid();
 updateWalls(-1);
@@ -2165,7 +2181,7 @@ function frame(now) {
   last = now; time += dt;
 
   if (clock.playing && !drag) {
-    clock.h = (clock.h + dt * (rec.on ? 1 : 1 / 45)) % 24;
+    clock.h = (clock.h + dt * (rec.on ? 1 : SPEED)) % 24;
     timeInput.value = Math.round(clock.h * 60);
   }
   const hh = Math.floor(clock.h), mm = Math.floor((clock.h - hh) * 60);
@@ -2219,7 +2235,7 @@ function frame(now) {
   // lantern
   if (lantern.auto) lantern.on = sun.el < 3 * DEG || weather.k > 0.5;
   lanternLight.intensity += ((lantern.on ? 5 : 0) - lanternLight.intensity) * damp(dt, 4);
-  lanternPool.material.opacity = clamp(lanternLight.intensity / 5, 0, 1) * lerp(0.5, 0.22, sun.day);
+  lanternPool.material.opacity = clamp(lanternLight.intensity / 5, 0, 1) * lerp(0.3, 0.12, sun.day);
   lanternBall.material = lantern.on ? lanternOnMat : lanternOffMat;
 
   // window and breeze
@@ -2323,7 +2339,7 @@ function frame(now) {
 
   renderFrame();
   window.__room.frames++;
-  requestAnimationFrame(frame);
+  if (!FIXED) requestAnimationFrame(frame);
 }
 
 window.__room = {
@@ -2332,7 +2348,8 @@ window.__room = {
   move(name, x, z, rot = 0) { const it = this.get(name); Object.assign(it, { x, z, rot }); placeItem(it); itemsMoved(); },
   project(v) { const p = new V3(...v).project(camera); return [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight]; },
 };
-requestAnimationFrame(frame);
+window.__room.tick = (n = 1) => { for (let i = 0; i < n; i++) frame(last + 1000 / 30); };
+if (FIXED) { last = 0; window.__room.tick(2); } else requestAnimationFrame(frame);
 </script>
 </body>
 </html>
