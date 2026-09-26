@@ -118,8 +118,15 @@
   .dresser-hint { margin: 10px 6px 0; font: 600 11.5px/1.45 var(--f-ui); color: #6d6479; }
   .dresser-hint b { color: #41384d; }
   .dresser-close { display: none; }
+  .dresser-fold svg { transition: transform 0.25s ease; }
+  .dresser.folded { width: auto; bottom: auto; padding: 8px 8px 8px 14px; cursor: pointer; }
+  .dresser.folded header { margin: 0; align-items: center; gap: 8px; }
+  .dresser.folded header p, .dresser.folded ul, .dresser.folded .dresser-hint { display: none; }
+  .dresser.folded h2 { font-size: 16px; }
+  .dresser.folded .dresser-fold svg { transform: rotate(180deg); }
   .ghost { position: fixed; left: 0; top: 0; width: 76px; height: 76px; pointer-events: none; z-index: 20; transform: translate(-50%, -60%); opacity: 0.92; filter: drop-shadow(0 6px 10px rgba(65, 56, 77, 0.25)); }
   body.docked .hint { display: none; }
+  @media (min-width: 980px) { .hint { display: none; } }
   body.photo .dresser, body.recording .dresser { opacity: 0; pointer-events: none; }
   body.clean .dresser { display: none; }
   #shelfBtn { display: none; }
@@ -127,6 +134,7 @@
     #shelfBtn { display: grid; }
     .dresser { top: auto; bottom: calc(176px + env(safe-area-inset-bottom, 0px)); right: 16px; width: min(340px, calc(100vw - 32px)); max-height: calc(100vh - 346px); }
     .dresser-close { display: grid; }
+    .dresser-fold { display: none; }
     .dresser[hidden] { display: none !important; }
   }
   #gl.laser { cursor: crosshair; }
@@ -285,6 +293,8 @@
 <aside class="dresser" id="shelf" aria-label="The dresser: things to add to the room">
   <header>
     <div><h2>The dresser</h2><p>Drag anything into the room</p></div>
+    <button id="dresserFold" type="button" class="radio-btn dresser-fold" aria-expanded="true" aria-label="Fold the dresser away" title="Fold away">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l5 5-5 5"/></svg></button>
     <button id="shelfClose" type="button" class="radio-btn dresser-close" aria-label="Close the dresser">
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
   </header>
@@ -707,7 +717,7 @@ const seatItem = (() => {
   g.add(base, cushion, p1, p2, blanket);
   g.position.set((SEAT.x0 + SEAT.x1) / 2, 0, (SEAT.z0 + SEAT.z1) / 2);
   shadowAll(g);
-  return addItem({ name: 'Window seat', kind: 'fixed', group: g, w, d, info: () => 'Window seat · <em>the best spot in the house</em>' });
+  return addItem({ name: 'Window seat', kind: 'fixed', group: g, w, d, h: SEAT.top, info: () => 'Window seat · <em>the best spot in the house</em>' });
 })();
 
 /* --- rug --- */
@@ -781,7 +791,7 @@ const deskItem = (() => {
   }
   g.position.set(1.15, 0, -1.68);
   shadowAll(g);
-  return addItem({ name: 'Desk', group: g, w: 1.05, d: 0.56, info: () => 'Desk · <em>drag, R to turn</em>' });
+  return addItem({ name: 'Desk', group: g, w: 1.05, d: 0.56, h: 0.78, info: () => 'Desk · <em>drag, R to turn</em>' });
 })();
 
 /* --- steam --- */
@@ -1038,7 +1048,7 @@ const bookcaseItem = (() => {
   }
   g.position.set(-0.28, 0, -1.83);
   shadowAll(g);
-  return addItem({ name: 'Bookcase', group: g, w: W, d: D, info: () => 'Bookcase · <em>drag, R to turn</em>' });
+  return addItem({ name: 'Bookcase', group: g, w: W, d: D, h: 0.8, info: () => 'Bookcase · <em>drag, R to turn</em>' });
 })();
 function toggleBook(b) {
   b.out = !b.out;
@@ -1446,7 +1456,10 @@ const POLE_FRONT = new V3(0, 0, -1), POLE_BACK = new V3(0, 0, 1), FWD = new V3(0
 
 function poseCat(dt, time) {
   cat.group.position.copy(cat.pos);
+  cat.group.rotation.order = 'YXZ';
   cat.group.rotation.y = cat.yaw;
+  cat.hopPitch = cat.state === 'hop' ? cat.hopPitch || 0 : lerp(cat.hopPitch || 0, 0, damp(dt, 10));
+  cat.group.rotation.x = cat.hopPitch;
   cat.petT = Math.max(0, cat.petT - dt);
   heart.t = Math.min(1, heart.t + dt / 1.6);
   if (!cat.model) return;
@@ -1535,7 +1548,9 @@ function poseCat(dt, time) {
 }
 
 /* ---------- where is warm, and how to get there ---------- */
-const CELL = 0.25, GN = Math.round((2 * HW) / CELL);
+/* The nav grid treats the cat as a disc: obstacles are grown by its radius,
+   so a path along a cell centre keeps the whole cat clear of furniture. */
+const CELL = 0.125, GN = Math.round((2 * HW) / CELL), CAT_R = 0.13, CAT_HALF = 0.2;
 let blocked = new Uint8Array(GN * GN);
 const cellCenter = (i) => -HW + CELL / 2 + i * CELL;
 const cellOf = (x) => clamp(Math.floor((x + HW) / CELL), 0, GN - 1);
@@ -1545,7 +1560,8 @@ function rebuildGrid() {
   for (const it of items) if (it.blocks && (it.kind === 'floor' || it === seatItem)) boxes.push(footprint(it));
   for (let i = 0; i < GN; i++) for (let j = 0; j < GN; j++) {
     const x = cellCenter(i), z = cellCenter(j);
-    for (const b of boxes) if (x > b.x0 - 0.07 && x < b.x1 + 0.07 && z > b.z0 - 0.07 && z < b.z1 + 0.07) { blocked[i * GN + j] = 1; break; }
+    if (Math.abs(x) > HW - CAT_R || Math.abs(z) > HW - CAT_R) { blocked[i * GN + j] = 1; continue; }
+    for (const b of boxes) if (x > b.x0 - CAT_R && x < b.x1 + CAT_R && z > b.z0 - CAT_R && z < b.z1 + CAT_R) { blocked[i * GN + j] = 1; break; }
   }
 }
 function findPath(from, to) {
@@ -1582,6 +1598,25 @@ function findPath(from, to) {
   return cells.map((n) => new V3(cellCenter(Math.floor(n / GN)), 0, cellCenter(n % GN)));
 }
 
+function losClear(a, b) {
+  const d = Math.hypot(b.x - a.x, b.z - a.z), n = Math.ceil(d / 0.04);
+  for (let i = 1; i <= n; i++) {
+    const x = lerp(a.x, b.x, i / n), z = lerp(a.z, b.z, i / n);
+    if (blocked[cellOf(x) * GN + cellOf(z)]) return false;
+  }
+  return true;
+}
+/* keep only the waypoints needed to walk in straight, clear lines */
+function smoothPath(start, pts) {
+  const out = [];
+  let from = start, i = 0;
+  while (i < pts.length) {
+    let j = pts.length - 1;
+    while (j > i && !losClear(from, pts[j])) j--;
+    out.push(pts[j]); from = pts[j]; i = j + 1;
+  }
+  return out;
+}
 function warmth(p, onSeat) {
   let w = sunlit(new V3(p.x, p.y + 0.12, p.z)) * 3;
   if (weather.k > 0.5 && windowState.open) w -= 2 * Math.max(0, 1 - Math.hypot(p.x - winCenter.x, p.z - winCenter.z) / 1.6);
@@ -1620,19 +1655,19 @@ function candidates() {
   }
   const watching = birds.some((b) => b.state === 'perched');
   for (let z = SEAT.z0 + 0.25; z <= SEAT.z1 - 0.2; z += 0.25) {
-    out.push({ p: new V3(-1.72, SEAT.top, z), seat: true, kind: watching ? 'watch' : 'rest', bonus: watching ? 3 : 0, hops: [new V3(-1.3, 0, z)] });
+    out.push({ p: new V3(-1.72, SEAT.top, z), seat: true, kind: watching ? 'watch' : 'rest', bonus: watching ? 3 : 0, hops: [new V3(SEAT.x1 + CAT_HALF + 0.06, 0, z)] });
   }
   const b = bedItem;
   out.push({ p: new V3(b.x, 0.05, b.z), kind: 'rest' });
   for (const pr of props) {
     if (pr.type === 'box' && time > (cat.boxBoredUntil || 0)) {
       const c = pr.group.getWorldPosition(new V3());
-      const from = floorNear(c, 0.36);
+      const from = floorNear(c, Math.max(...PROP_TYPES.box.size) / 2 + CAT_HALF + 0.04);
       if (from) out.push({ p: new V3(c.x, 0.02, c.z), kind: 'box', bonus: 4, hops: [from], away: from, owner: pr });
     }
     if (pr.type === 'catTree' && pr.perches) {
       const [low, high] = pr.perches.map((o) => o.getWorldPosition(new V3()));
-      const from = floorNear(low, 0.3);
+      const from = floorNear(pr.group.getWorldPosition(new V3()), 0.23 + CAT_HALF + 0.04);
       if (from) {
         out.push({ p: low, kind: 'perch', bonus: 0.7, hops: [from], away: from, owner: pr });
         out.push({ p: high, kind: 'perch', bonus: 1.1 + sun.night * 1.4, hops: [from, low], away: from, owner: pr });
@@ -1640,13 +1675,22 @@ function candidates() {
     }
     if (pr.type === 'bowls' && cat.hungry) {
       const c = pr.group.getWorldPosition(new V3());
-      const front = new V3(0, 0, 0.22).applyQuaternion(pr.group.getWorldQuaternion(new THREE.Quaternion())).add(c);
-      front.y = 0;
+      const front = freeCellNear(new V3(0, 0, 0.3).applyQuaternion(pr.group.getWorldQuaternion(new THREE.Quaternion())).add(c));
       if (pr.food > 0.1) out.push({ p: front, kind: 'eat', bonus: 8, face: c, bowl: pr });
-      else out.push({ p: meowSpot(), kind: 'meow', bonus: 8 });
+      else out.push({ p: freeCellNear(meowSpot()), kind: 'meow', bonus: 8 });
     }
   }
   return out;
+}
+/* the centre of the nearest cell the cat can stand in */
+function freeCellNear(p) {
+  let best = null, bd = Infinity;
+  for (let i = 0; i < GN; i++) for (let j = 0; j < GN; j++) {
+    if (blocked[i * GN + j]) continue;
+    const d = Math.hypot(cellCenter(i) - p.x, cellCenter(j) - p.z);
+    if (d < bd) { bd = d; best = new V3(cellCenter(i), 0, cellCenter(j)); }
+  }
+  return best || new V3(p.x, 0, p.z);
 }
 /* in front of the room, facing you */
 function meowSpot() {
@@ -1688,8 +1732,9 @@ function goTo(c) {
     start = land;
   }
   const first = c.hops ? c.hops[0] : c.p;
-  const path = findPath(start, first);
-  if (!path) return;
+  const raw = findPath(start, first);
+  if (!raw) return;
+  const path = smoothPath(start, raw);
   legs.push(...path.map((p) => ({ walk: p })), { walk: first.clone().setY(0) });
   if (c.hops) {
     const chain = [...c.hops, c.p];
@@ -1723,6 +1768,31 @@ function walkToward(target, speed, dt) {
   cat.phase += dt * (2 * Math.PI / 0.75) * (speed / 0.4);
   return false;
 }
+/* push the cat's body (two discs, chest and hips) out of anything it is not on */
+function keepCatOut() {
+  if (cat.held || cat.state === 'hop' || cat.state === 'pounce' || cat.inBox) return;
+  const fx = Math.sin(cat.yaw), fz = Math.cos(cat.yaw), r = 0.1;
+  for (let pass = 0; pass < 2; pass++) for (const o of items) {
+    if (!o.blocks || !(o.kind === 'floor' || o === seatItem)) continue;
+    if (cat.pos.y >= (o.h ?? 0.8) - 0.04) continue; // standing on it
+    if ((o.h ?? 0.8) < 0.1) continue; // bowls: it leans over them to eat
+    const f = footprint(o);
+    for (const k of [0.11, -0.11]) {
+      const px = cat.pos.x + fx * k, pz = cat.pos.z + fz * k;
+      const cx = clamp(px, f.x0, f.x1), cz = clamp(pz, f.z0, f.z1);
+      const dx = px - cx, dz = pz - cz, d = Math.hypot(dx, dz);
+      if (d >= r) continue;
+      if (d > 1e-4) { cat.pos.x += (dx / d) * (r - d); cat.pos.z += (dz / d) * (r - d); }
+      else {
+        const opts = [[f.x0 - r - px, 0], [f.x1 + r - px, 0], [0, f.z0 - r - pz], [0, f.z1 + r - pz]];
+        const [mx, mz] = opts.sort((a, b) => Math.hypot(...a) - Math.hypot(...b))[0];
+        cat.pos.x += mx; cat.pos.z += mz;
+      }
+    }
+  }
+  cat.pos.x = clamp(cat.pos.x, -HW + 0.1, HW - 0.1);
+  cat.pos.z = clamp(cat.pos.z, -HW + 0.1, HW - 0.1);
+}
 function stepCat(dt, time) {
   if (cat.held) { cat.state = 'held'; cat.activity = 'being held, patiently'; return; }
   cat.stateT += dt;
@@ -1742,10 +1812,15 @@ function stepCat(dt, time) {
     } else if (leg.hop) {
       if (cat.state !== 'hop') { cat.state = 'hop'; cat.hop = 0; }
       const [a, b] = leg.hop;
-      cat.hop += dt / (0.3 + 0.35 * Math.min(1, Math.abs(b.y - a.y) / 0.5));
+      const rise = Math.abs(b.y - a.y);
+      cat.hop += dt / (0.36 + 0.34 * Math.min(1, rise / 0.5));
       const t = Math.min(1, cat.hop);
       cat.pos.lerpVectors(a, b, t);
-      cat.pos.y = lerp(a.y, b.y, t) + Math.sin(Math.PI * t) * (0.12 + Math.abs(b.y - a.y) * 0.4);
+      // apex well above the higher end, so paws and belly clear the edge on the way
+      const arc = 0.1 + rise * 0.75;
+      cat.pos.y = lerp(a.y, b.y, t) + Math.sin(Math.PI * t) * arc;
+      const vy = (b.y - a.y) + Math.cos(Math.PI * t) * Math.PI * arc, vh = Math.hypot(b.x - a.x, b.z - a.z) + 0.2;
+      cat.hopPitch = clamp(-Math.atan2(vy, vh) * 0.6, -0.6, 0.5);
       if (Math.hypot(b.x - a.x, b.z - a.z) > 0.02) turnToward(b, dt, 14);
       if (t >= 1) { cat.path.shift(); cat.state = 'walk'; }
     }
@@ -2157,6 +2232,16 @@ function toonify(root) {
   });
   return root;
 }
+/* wrap a part in a pivot at its visual centre (some models keep origins at 0) */
+function pivotAtCenter(obj) {
+  obj.updateWorldMatrix(true, true);
+  const c = new THREE.Box3().setFromObject(obj).getCenter(new V3());
+  const pivot = new THREE.Group();
+  obj.parent.add(pivot);
+  pivot.position.copy(obj.parent.worldToLocal(c.clone()));
+  pivot.attach(obj);
+  return pivot;
+}
 const findPart = (root, name) => root.getObjectByName(name) || root.getObjectByName(name.replace(/[.]/g, ''));
 /* stand-ins: [name, geometry, colour, position] */
 const box3 = (w, h, d) => new THREE.BoxGeometry(w, h, d).translate(0, h / 2, 0);
@@ -2194,8 +2279,8 @@ async function modelFor(type, path) {
    table top), slot (a fixed spot by the window) */
 const PROP_TYPES = {
   radio:       { label: 'Radio', note: 'Click it for lo-fi', place: 'small', size: [0.3, 0.14] },
-  box:         { label: 'Cardboard box', note: 'The cat cannot resist', place: 'floor', size: [0.44, 0.34] },
-  bowls:       { label: 'Food & water', note: 'Dinner at 8:00 and 19:00', place: 'floor', size: [0.4, 0.22] },
+  box:         { label: 'Cardboard box', note: 'The cat cannot resist', place: 'floor', size: [0.44, 0.34], blocks: true, h: 0.2 },
+  bowls:       { label: 'Food & water', note: 'Dinner at 8:00 and 19:00', place: 'floor', size: [0.4, 0.22], blocks: true, h: 0.06 },
   catTree:     { label: 'Cat tree', note: 'Climbs it, sleeps on top at night', place: 'floor', size: [0.46, 0.46], blocks: true },
   floorLamp:   { label: 'Floor lamp', note: 'A warm spot after dark', place: 'floor', size: [0.3, 0.3], blocks: true },
   candle:      { label: 'Candle', note: 'Mind the open window', place: 'small', size: [0.09, 0.09] },
@@ -2269,7 +2354,7 @@ function addProp(type, at = {}) {
     let x = at.x, z = at.z;
     if (x === undefined) { const spot = freeSpot(w, d); if (!spot) { toast('There is no free spot on the floor for that'); return null; } [x, z] = spot; }
     group.position.set(x, 0, z);
-    it = addItem({ name: T.label, kind: T.place === 'floor' ? 'floor' : 'small', group, w, d, rot: at.rot || 0, blocks: !!T.blocks, info: () => propInfo(pr), click: () => propClick(pr) });
+    it = addItem({ name: T.label, kind: T.place === 'floor' ? 'floor' : 'small', group, w, d, h: T.h, rot: at.rot || 0, blocks: !!T.blocks && T.place === 'floor', info: () => propInfo(pr), click: () => propClick(pr) });
     it.x = x; it.z = z;
     placeItem(it);
   } else {
@@ -2388,8 +2473,12 @@ PROP_INFO.catTree = () => (cat.spot?.kind === 'perch' && cat.pos.y > 0.3 ? 'the 
 // floor lamp: a warm pool and a warm spot
 PROP_SETUP.floorLamp = (pr, m) => {
   pr.bulb = findPart(m, 'bulb'); pr.shade = findPart(m, 'shade');
-  pr.light = new THREE.PointLight('#ffb870', 0, 3.2, 1.6);
-  (pr.bulb || m).add(pr.light);
+  pr.light = new THREE.PointLight('#ffc184', 0, 3.4, 1.4);
+  // the light sits where the bulb is drawn, not at the model's origin on the floor
+  m.updateWorldMatrix(true, true);
+  const glowAt = new THREE.Box3().setFromObject(pr.bulb || pr.shade || m).getCenter(new V3());
+  pr.light.position.copy(pr.group.worldToLocal(glowAt));
+  pr.group.add(pr.light);
   pr.pool = noInk(new THREE.Mesh(new THREE.CircleGeometry(0.9, 40), lanternPool.material.clone()));
   pr.pool.rotation.x = -Math.PI / 2; pr.pool.position.y = 0.006; pr.pool.renderOrder = 4;
   pr.group.add(pr.pool);
@@ -2399,10 +2488,11 @@ PROP_INFO.floorLamp = (pr) => `${pr.on ? 'on' : 'off'} · click`;
 PROP_CLICK.floorLamp = (pr) => { pr.on = !pr.on; };
 PROP_STEP.floorLamp = (pr, dt) => {
   if (!pr.light) return;
-  pr.light.intensity += ((pr.on ? 3.2 : 0) - pr.light.intensity) * damp(dt, 5);
-  pr.pool.material.opacity = clamp(pr.light.intensity / 3.2, 0, 1) * lerp(0.3, 0.12, sun.day);
-  if (pr.bulb) pr.bulb.material = pr.on ? (pr.bulbOn ||= glow('#ffe2b0', 2.5)) : (pr.bulbOff ||= pr.bulb.material);
-  if (pr.shade) { pr.shadeOff ||= pr.shade.material; pr.shade.material = pr.on ? (pr.shadeOn ||= glow('#ffd9a8', 1.25)) : pr.shadeOff; }
+  pr.light.intensity += ((pr.on ? 2.2 : 0) - pr.light.intensity) * damp(dt, 5);
+  pr.pool.material.opacity = clamp(pr.light.intensity / 2.2, 0, 1) * lerp(0.26, 0.1, sun.day);
+  if (pr.bulb) pr.bulb.material = pr.on ? (pr.bulbOn ||= glow('#ffe2b0', 2.2)) : (pr.bulbOff ||= pr.bulb.material);
+  // a linen shade lit from inside: still shaded, just warm and bright
+  if (pr.shade) { pr.shadeOff ||= pr.shade.material; pr.shade.material = pr.on ? (pr.shadeOn ||= toon('#fff1dc', { emissive: '#ffb56e', emissiveIntensity: 0.5, side: THREE.DoubleSide })) : pr.shadeOff; }
 };
 
 // candle: flame, flicker, and the breeze from an open window can blow it out
@@ -2414,12 +2504,12 @@ const flameTex = canvasTex(32, 64, (g) => {
 PROP_SETUP.candle = (pr, m) => {
   const wick = findPart(m, 'wick') || m;
   wick.updateMatrixWorld(true);
-  pr.flame = noInk(new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, color: new THREE.Color(1.5, 1.25, 0.9), transparent: true, depthWrite: false })));
+  pr.flame = noInk(new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, color: new THREE.Color(1.05, 0.9, 0.7), transparent: true, depthWrite: false })));
   pr.flame.scale.set(0.018, 0.036, 1);
   pr.flame.renderOrder = 7;
   pr.flameAt = pr.group.worldToLocal(wick.getWorldPosition(new V3())).add(new V3(0, 0.016, 0));
   pr.flame.position.copy(pr.flameAt);
-  pr.light = new THREE.PointLight('#ffb060', 0, 1.6, 1.8);
+  pr.light = new THREE.PointLight('#ffb060', 0, 0.9, 2);
   pr.light.position.copy(pr.flameAt);
   pr.smoke = noInk(new THREE.Sprite(new THREE.SpriteMaterial({ map: steamTex, color: '#d8d0cc', transparent: true, depthWrite: false, opacity: 0 })));
   pr.group.add(pr.flame, pr.light, pr.smoke);
@@ -2434,7 +2524,7 @@ PROP_STEP.candle = (pr, dt, t) => {
   pr.flame.visible = pr.on;
   pr.flame.scale.set(0.018 * f, 0.036 * f, 1);
   pr.flame.position.set(pr.flameAt.x + wind.v * 0.004 * Math.sin(t * 7), pr.flameAt.y, pr.flameAt.z);
-  pr.light.intensity = pr.on ? 0.55 * f : 0;
+  pr.light.intensity = pr.on ? 0.18 * f : 0;
   // a gust near an open window
   if (pr.on && windowState.open && wind.gust > 0.75) {
     const at = pr.group.getWorldPosition(_v2);
@@ -2449,7 +2539,7 @@ PROP_STEP.candle = (pr, dt, t) => {
 // yarn: rolls, bounces off furniture, leaves a thread; click to wind it back
 const threadMat = toon('#ec9fb0');
 PROP_SETUP.yarn = (pr, m) => {
-  pr.ballMesh = findPart(m, 'ball') || m;
+  pr.ballMesh = pivotAtCenter(findPart(m, 'ball') || m); // it rolls about its centre
   // the ball rolls freely in the room, apart from the item that placed it
   const world = pr.group.getWorldPosition(new V3());
   pr.ball = new THREE.Group();
@@ -2928,11 +3018,26 @@ $('shelfBtn').addEventListener('click', () => setShelf($('shelf').hidden));
 $('shelfClose').addEventListener('click', () => setShelf(false));
 /* on wide screens the dresser stays open beside the room, and the room moves over */
 const DOCK_MIN = 980, DRESSER_W = 272 + 20;
-function docked() { return innerWidth >= DOCK_MIN && !params.has('clean'); }
+let dresserFolded = false;
+try { dresserFolded = localStorage.getItem('cat-room-dresser') === 'folded'; } catch { /* open by default */ }
+function docked() { return innerWidth >= DOCK_MIN && !params.has('clean') && !dresserFolded; }
+function setFolded(f) {
+  dresserFolded = f;
+  $('shelf').classList.toggle('folded', f);
+  $('dresserFold').setAttribute('aria-expanded', String(!f));
+  $('dresserFold').setAttribute('aria-label', f ? 'Open the dresser' : 'Fold the dresser away');
+  try { localStorage.setItem('cat-room-dresser', f ? 'folded' : 'open'); } catch { /* not remembered */ }
+  syncDresser();
+  resize();
+}
+$('dresserFold').addEventListener('click', (e) => { e.stopPropagation(); setFolded(!dresserFolded); });
+$('shelf').addEventListener('click', (e) => { if (dresserFolded && innerWidth >= DOCK_MIN && !e.target.closest('button')) setFolded(false); });
 function syncDresser() {
+  const wide = innerWidth >= DOCK_MIN && !params.has('clean');
+  $('shelf').classList.toggle('folded', wide && dresserFolded);
   const d = docked();
   document.body.classList.toggle('docked', d);
-  if (d) { $('shelf').hidden = false; renderShelf(); }
+  if (wide) { $('shelf').hidden = false; renderShelf(); }
   else if (!$('shelf').hidden && $('shelfBtn').getAttribute('aria-expanded') !== 'true') $('shelf').hidden = true;
 }
 addEventListener('resize', syncDresser);
@@ -3236,8 +3341,11 @@ function placeSmall(it, e, floorHit) {
     const local = host.group.worldToLocal(point.clone());
     g.position.set(local.x, host === deskItem ? 0.755 : 0.8, local.z);
   } else {
+    const nx = clamp(point.x, -HW + 0.1, HW - 0.1), nz = clamp(point.z, -HW + 0.1, HW - 0.1);
+    const probe = { ...it, kind: 'floor', blocks: true, rot: 0 };
+    if (overlaps(probe, nx, nz, 0)) return; // stays where it last fitted
     scene.attach(g);
-    g.position.set(clamp(point.x, -HW + 0.1, HW - 0.1), it.prop?.type === 'yarn' ? 0.05 : 0, clamp(point.z, -HW + 0.1, HW - 0.1));
+    g.position.set(nx, it.prop?.type === 'yarn' ? 0.05 : 0, nz);
     g.rotation.set(0, g.rotation.y, 0);
   }
   it.host = host;
@@ -3757,6 +3865,7 @@ function frame(now) {
   stepRain(dt, time);
   stepWet(dt);
   autosave(dt);
+  keepCatOut();
   poseCat(dt, time);
 
   renderFrame();
@@ -3765,7 +3874,7 @@ function frame(now) {
 }
 
 window.__room = {
-  frames: 0, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, sunlit, lantern, windowState, monstera, lemon, papers, tea,
+  frames: 0, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, goTo, sunlit, lantern, windowState, monstera, lemon, papers, tea,
   get: (name) => items.find((i) => i.name === name),
   move(name, x, z, rot = 0) { const it = this.get(name); Object.assign(it, { x, z, rot }); placeItem(it); itemsMoved(); },
   project(v) { const p = new V3(...v).project(camera); return [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight]; },

@@ -1,0 +1,16 @@
+import { chromium } from '/home/alv/projects/makefx/node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/index.mjs';
+const S = process.argv[2];
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const errs = []; page.on('pageerror', (e) => errs.push(e.message));
+await page.goto('http://localhost:8123/index.html?t=17&paused=1');
+await page.waitForFunction(() => window.__room && window.__room.frames > 5);
+await page.click('#dresserFold');
+await page.waitForTimeout(1500);
+await page.screenshot({ path: `${S}/folded.png` });
+await page.reload(); await page.waitForFunction(() => window.__room && window.__room.frames > 5);
+console.log('folded after reload', await page.evaluate(() => document.getElementById('shelf').classList.contains('folded')));
+await page.click('#dresserFold');
+console.log('open again', await page.evaluate(() => !document.getElementById('shelf').classList.contains('folded')));
+console.log(errs.join('\n') || 'no errors');
+await browser.close();
