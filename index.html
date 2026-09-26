@@ -199,6 +199,48 @@
     .dresser[hidden] { display: none !important; }
   }
   #gl.laser { cursor: crosshair; }
+  #albumBtn { position: relative; }
+  .badge {
+    position: absolute; top: 1px; right: -1px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+    border-radius: 999px; background: var(--accent); color: #fff; font: 800 10px/16px var(--f-ui); text-align: center;
+  }
+  .badge:empty, .badge[data-zero] { display: none; }
+  .flash { position: fixed; inset: 0; background: #fffaf3; opacity: 0; pointer-events: none; z-index: 30; }
+  .catch {
+    position: fixed; left: 24px; bottom: calc(100px + env(safe-area-inset-bottom, 0px)); z-index: 25;
+    display: flex; align-items: center; gap: 12px; padding: 8px 16px 8px 8px; border: 0; cursor: pointer; text-align: left;
+    border-radius: 16px; background: rgba(255, 250, 243, 0.94); color: #41384d;
+    box-shadow: 0 14px 36px rgba(65, 56, 77, 0.22);
+    transform-origin: 30% 100%;
+  }
+  .catch img { width: 112px; height: 84px; object-fit: cover; border-radius: 6px; border: 5px solid #fff; border-bottom-width: 14px; box-shadow: 0 2px 6px rgba(65, 56, 77, 0.2); transform: rotate(-3deg); }
+  .catch-text { display: flex; flex-direction: column; gap: 4px; }
+  .catch-text em { font: italic 400 13px/1.2 var(--f-title); color: #6d6479; }
+  .catch-text b { font: 500 19px/1.15 var(--f-title); }
+  .catch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .album-back { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; background: rgba(50, 43, 60, 0.38); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  .album {
+    width: min(980px, 100%); max-height: min(760px, calc(100vh - 40px)); display: flex; flex-direction: column; box-sizing: border-box;
+    padding: 22px 22px 16px; border-radius: 20px; background: #fbf4ea; color: #41384d;
+    box-shadow: 0 30px 80px rgba(40, 30, 50, 0.35), inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+  }
+  .album header { display: flex; align-items: flex-start; justify-content: space-between; margin: 0 4px 14px; }
+  .album h2 { margin: 0; font: 500 28px/1.1 var(--f-title); }
+  .album header p { margin: 4px 0 0; font: italic 400 15px/1.3 var(--f-title); color: #6d6479; }
+  .album-grid { list-style: none; margin: 0; padding: 4px 4px 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 18px 16px; overflow: auto; }
+  .polaroid { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 10px; border-radius: 4px; background: #fff; box-shadow: 0 2px 8px rgba(65, 56, 77, 0.14); }
+  .polaroid:nth-child(3n+1) { transform: rotate(-1.2deg); } .polaroid:nth-child(3n+2) { transform: rotate(0.8deg); } .polaroid:nth-child(4n) { transform: rotate(-0.4deg); }
+  .polaroid img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 2px; display: block; }
+  .polaroid b { font: 500 15.5px/1.2 var(--f-title); }
+  .polaroid small { font: 600 11px/1.3 var(--f-ui); color: #8a8195; }
+  .polaroid.empty { background: transparent; box-shadow: none; border: 1.5px dashed rgba(65, 56, 77, 0.22); }
+  .polaroid.empty .ph { width: 100%; aspect-ratio: 4 / 3; border-radius: 2px; display: grid; place-items: center; background: rgba(65, 56, 77, 0.05); color: rgba(65, 56, 77, 0.35); font: 500 30px/1 var(--f-title); }
+  .polaroid.empty b { color: #6d6479; }
+  .polaroid.empty i { font: italic 400 13px/1.35 var(--f-title); color: #8a8195; }
+  .polaroid.fresh { box-shadow: 0 0 0 3px var(--accent), 0 2px 8px rgba(65, 56, 77, 0.14); }
+  body.photo .catch, body.recording .catch, body.clean .catch, body.clean #albumBtn { display: none; }
+  @media (max-width: 720px) { .catch { left: 16px; right: 16px; bottom: calc(188px + env(safe-area-inset-bottom, 0px)); } .album { padding: 16px 14px 12px; } .album-grid { grid-template-columns: repeat(2, 1fr); gap: 14px 10px; } }
+  @media (prefers-reduced-motion: reduce) { .polaroid, .catch img { transform: none !important; } }
   .toast {
     position: fixed; left: 50%; top: calc(24px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
     padding: 10px 14px; border-radius: 12px; background: rgba(50, 43, 60, 0.9); color: #fbf5ec;
@@ -334,6 +376,10 @@
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 8.5A6 6 0 1 0 15 13"/><path d="M16 4v4.5h-4.5"/></svg>
   </button>
   <span class="sep"></span>
+  <button id="albumBtn" type="button" aria-label="Album of moments" aria-haspopup="dialog" title="Album">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 4.2c0-.7.5-1.2 1.2-1.2H15c.6 0 1 .4 1 1v11.6c0 .6-.4 1-1 1H5.3A1.3 1.3 0 0 1 4 15.3z"/><path d="M4 14.8c0-.7.6-1.3 1.3-1.3H16"/><path d="M8.2 6.3h4.6M8.2 8.8h3.2" stroke-linecap="round"/></svg>
+    <span class="badge" id="albumCount" aria-hidden="true">0</span>
+  </button>
   <button id="photo" type="button" aria-label="Photo mode" title="Photo mode">
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 7.2c0-.9.7-1.6 1.6-1.6h1.9l1.3-1.9h4.4l1.3 1.9h1.9c.9 0 1.6.7 1.6 1.6v7.2c0 .9-.7 1.6-1.6 1.6H4.6c-.9 0-1.6-.7-1.6-1.6z"/><circle cx="10" cy="10.6" r="3"/></svg>
   </button>
@@ -376,6 +422,21 @@
   <button id="recStop" type="button" class="pill">Stop</button>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<div class="flash" id="flash" aria-hidden="true"></div>
+<button type="button" class="catch" id="catch" hidden aria-live="polite">
+  <img id="catchImg" alt="">
+  <span class="catch-text"><em>A moment for the album</em><b id="catchTitle"></b></span>
+</button>
+<div class="album-back" id="albumBack" hidden>
+  <section class="album" id="album" role="dialog" aria-modal="true" aria-labelledby="albumTitle">
+    <header>
+      <div><h2 id="albumTitle">The album</h2><p id="albumSub"></p></div>
+      <button id="albumClose" type="button" class="radio-btn" aria-label="Close the album">
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+    </header>
+    <ol class="album-grid" id="albumGrid"></ol>
+  </section>
+</div>
 <aside class="dresser" id="shelf" aria-label="The dresser: things to add to the room">
   <header>
     <div><h2>The dresser</h2><p>Drag anything into the room</p></div>
@@ -2835,7 +2896,7 @@ PROP_STEP.candle = (pr, dt, t) => {
   // a gust near an open window
   if (pr.on && windowState.open && wind.gust > 0.75) {
     const at = pr.group.getWorldPosition(_v2);
-    if (Math.hypot(at.x - winCenter.x, at.z - winCenter.z) < 1.9) { blowOut(pr); toast('A gust blew the candle out'); }
+    if (Math.hypot(at.x - winCenter.x, at.z - winCenter.z) < 1.9) { blowOut(pr); roomEvents.gust = { t: time, at: at.clone() }; toast('A gust blew the candle out'); }
   }
   pr.smokeT = Math.min(1, pr.smokeT + dt / 2.5);
   pr.smoke.position.set(pr.flameAt.x, pr.flameAt.y + pr.smokeT * 0.2, pr.flameAt.z);
@@ -3102,6 +3163,7 @@ function stepPounce(dt) {
 /* ---------- small sounds, made on the spot ---------- */
 function sfxCtx() { if (!radio.ctx) buildRadio(); return radio.ctx && radio.ctx.state === 'running' ? radio.ctx : null; }
 function ringChime(strength) {
+  roomEvents.chime = { t: time };
   const ctx = sfxCtx(); if (!ctx) return;
   const notes = [1046.5, 1174.7, 1318.5, 1568, 1760];
   const f = notes[Math.floor(Math.random() * notes.length)], t0 = ctx.currentTime;
@@ -3420,6 +3482,166 @@ loadGLB('models/pothos.glb').then((scene0) => {
     register(p.item);
   }
 });
+
+/* ===================================================================
+   THE ALBUM: moments the room makes by itself, when the right things
+   happen together. Each is a condition over the room's own state; when it
+   has held for a moment, the room takes a picture of it.
+   =================================================================== */
+const roomEvents = {};
+const _mv = new V3();
+const recently = (e, s = 3) => !!e && time - e.t < s;
+const asleep = () => cat.state === 'sleep';
+const catLit = () => sunlit(_mv.set(cat.pos.x, cat.pos.y + 0.12, cat.pos.z));
+const propOf = (type) => props.find((p) => p.type === type);
+const playing = () => radio.on && !!radio.el && !radio.el.paused;
+const nearLamp = () => props.some((p) => p.type === 'floorLamp' && p.on && Math.hypot(cat.pos.x - p.item.x, cat.pos.z - p.item.z) < 1.2);
+const nearLantern = () => lantern.on && Math.hypot(cat.pos.x - lanternLight.position.x, cat.pos.z - lanternLight.position.z) < 1.2;
+const worldOf = (o) => o.getWorldPosition(new V3());
+/* focus: where the photo is centred (defaults to the cat) */
+const MOMENTS = [
+  { id: 'box', title: 'If it fits', hint: 'Something to sit in.', test: () => cat.inBox && cat.state === 'sit' },
+  { id: 'sunbath', title: 'Sunbath', hint: 'Warm light, closed eyes.', test: () => asleep() && catLit() },
+  { id: 'golden', title: 'Golden hour', hint: 'The window seat, the last of the sun.', test: () => asleep() && onSeat(cat.pos) && sun.day > 0.5 && sun.warm > 0.6 },
+  { id: 'lantern', title: 'Under the lantern', hint: 'When the paper light comes on.', test: () => asleep() && nearLantern() && sun.night > 0.5 },
+  { id: 'rainwatch', title: 'Rain on the glass', hint: 'A wet window and someone watching it.', test: () => weather.k > 0.7 && onSeat(cat.pos) },
+  { id: 'birdwatch', title: 'Birdwatcher', hint: 'Visitors outside, a tail twitching inside.', test: () => cat.state === 'watch' && birds.some((b) => b.state === 'perched') },
+  { id: 'pounce', title: 'Pounce', hint: 'A red dot on the floor.', test: () => cat.state === 'pounce', hold: 0.1 },
+  { id: 'yarn', title: 'Batting practice', hint: 'Something round that unrolls.', test: () => cat.state === 'bat', hold: 0.3 },
+  { id: 'dinner', title: 'Dinner time', hint: 'Eight in the morning, seven at night.', test: () => cat.state === 'eat' },
+  { id: 'mrrp', title: 'Mrrp?', hint: 'An empty bowl.', test: () => cat.state === 'meow' },
+  { id: 'summit', title: 'Summit', hint: 'The highest place to sleep.', test: () => asleep() && cat.spot?.kind === 'perch' && cat.pos.y > 0.7 },
+  { id: 'purr', title: 'Purr', hint: 'A hand on soft fur.', test: () => cat.petT > 0 && !cat.held, hold: 0.4 },
+  { id: 'lamp', title: 'Reading light', hint: 'A second warm spot after dark.', test: () => asleep() && nearLamp() },
+  { id: 'lofi', title: 'Lo-fi and chill', hint: 'Music on, lights low.', test: () => playing() && sun.night > 0.6 && asleep() },
+  { id: 'mess', title: 'Paperwork', hint: 'An open window and a busy desk.', test: () => papers.filter((p) => p.state === 'floor').length >= 2,
+    focus: () => papers.find((p) => p.state === 'floor')?.mesh.getWorldPosition(new V3()) },
+  { id: 'leaf', title: 'Oops', hint: 'A cat walking past the monstera.', test: () => fallen.some((f) => f.t >= 1), focus: () => fallen[0]?.mesh.position.clone() },
+  { id: 'tea', title: 'Forgotten tea', hint: 'It was hot once.', test: () => tea.temp < 30, focus: () => worldOf(tea.mug) },
+  { id: 'harvest', title: 'Harvest', hint: 'Sunlight, time, and a small tree.', test: () => lemonCount() >= 6, focus: () => worldOf(lemonItem.group).add(new V3(0, 0.8, 0)) },
+  { id: 'jungle', title: 'Jungle', hint: 'Every leaf unfurled.', test: () => monsteraCount() >= 9, focus: () => worldOf(monsteraItem.group).add(new V3(0, 0.6, 0)) },
+  { id: 'puddle', title: 'Puddle', hint: 'Rain, and a window left open.', test: () => weather.wet > 0.5, focus: () => new V3(-1.3, 0.2, -0.35) },
+  { id: 'gust', title: 'The draught', hint: 'A flame near an open window.', test: () => recently(roomEvents.gust), hold: 0, focus: () => roomEvents.gust?.at },
+  { id: 'chime', title: 'Wind music', hint: 'Something that sings in the breeze.', test: () => recently(roomEvents.chime, 1) && windowState.open && !!propOf('windChime'), hold: 0,
+    focus: () => worldOf(propOf('windChime').group).add(new V3(0, -0.15, 0)) },
+  { id: 'painter', title: 'Self-portrait', hint: 'The room, in oil.', test: () => !!propOf('easel')?.painted, hold: 0.2, focus: () => worldOf(propOf('easel').group).add(new V3(0, 0.9, 0)) },
+  // secret ones: the album only shows that they exist
+  { id: 'box-sun', title: 'Box in the sun', secret: true, test: () => cat.inBox && catLit() },
+  { id: 'storm', title: 'Storm cosy', secret: true, test: () => sun.night > 0.6 && weather.k > 0.7 && playing() && asleep() && (lantern.on || nearLamp()) },
+  { id: 'owl', title: 'Night owl', secret: true, test: () => clock.h >= 2 && clock.h < 4 && !asleep() && !cat.held },
+];
+const ALBUM_KEY = 'cat-room-album-v1';
+const album = { got: {}, held: {}, busy: false, fresh: null };
+try { album.got = JSON.parse(localStorage.getItem(ALBUM_KEY) || '{}') || {}; } catch { album.got = {}; }
+function saveAlbum() {
+  try { localStorage.setItem(ALBUM_KEY, JSON.stringify(album.got)); }
+  catch {
+    // out of room: keep the moments, drop the oldest pictures
+    const ids = Object.keys(album.got).sort((a, b) => album.got[a].at.localeCompare(album.got[b].at));
+    for (const id of ids) { delete album.got[id].img; try { localStorage.setItem(ALBUM_KEY, JSON.stringify(album.got)); return; } catch { /* keep trimming */ } }
+  }
+}
+/* a 4:3 picture around the focus, cut from the frame on screen */
+function snapshot(focus) {
+  const W = canvas.width, Hh = canvas.height;
+  const p = focus.clone().project(camera);
+  const cx = (p.x + 1) / 2 * W, cy = (1 - p.y) / 2 * Hh;
+  const h = Math.min(Hh * 0.3, W * 0.225), w = h * 4 / 3;
+  const x = clamp(cx - w / 2, 0, W - w), y = clamp(cy - h * 0.55, 0, Hh - h);
+  const c = document.createElement('canvas');
+  c.width = 480; c.height = 360;
+  c.getContext('2d').drawImage(canvas, x, y, w, h, 0, 0, 480, 360);
+  return c.toDataURL('image/jpeg', 0.84);
+}
+function shutter() {
+  const ctx = radio.ctx && radio.ctx.state === 'running' ? radio.ctx : null;
+  if (!ctx) return;
+  const t0 = ctx.currentTime, n = ctx.createBufferSource(), buf = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (((i * 7919) % 997) / 498.5 - 1) * Math.pow(1 - i / d.length, 3); // deterministic click
+  n.buffer = buf;
+  const g = ctx.createGain(); g.gain.value = 0.25;
+  n.connect(g).connect(radio.master); n.start(t0);
+}
+let catchTimer = 0;
+function capture(m) {
+  album.busy = true;
+  const focus = (m.focus && m.focus()) || cat.pos.clone().add(new V3(0, 0.15, 0));
+  // wait one frame so the picture has the moment in it
+  requestAnimationFrame(() => {
+    let img = '';
+    try { img = snapshot(focus); } catch { /* a picture is a bonus */ }
+    album.got[m.id] = { at: new Date().toISOString(), clock: clockLabel(), img };
+    album.fresh = m.id;
+    saveAlbum();
+    renderAlbumCount();
+    shutter();
+    const f = $('flash');
+    f.animate([{ opacity: 0.85 }, { opacity: 0 }], { duration: 420, easing: 'ease-out' });
+    $('catchImg').src = img;
+    $('catchTitle').textContent = m.title;
+    const card = $('catch');
+    card.hidden = false;
+    card.animate([{ transform: 'translateY(24px) rotate(-4deg)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    clearTimeout(catchTimer);
+    catchTimer = setTimeout(() => { card.hidden = true; }, 4200);
+    if (!$('albumBack').hidden) renderAlbum();
+    setTimeout(() => { album.busy = false; }, 1500); // one picture at a time
+  });
+}
+let momentT = 0;
+function stepMoments(dt) {
+  if (FIXED || params.has('clean') || photo.on || rec.on || document.hidden) return;
+  momentT += dt;
+  if (momentT < 0.25) return;
+  const step = momentT; momentT = 0;
+  for (const m of MOMENTS) {
+    if (album.got[m.id]) continue;
+    let ok = false;
+    try { ok = !!m.test(); } catch { ok = false; }
+    album.held[m.id] = ok ? (album.held[m.id] || 0) + step : 0;
+    if (ok && !album.busy && album.held[m.id] >= (m.hold ?? 1.2)) { capture(m); break; }
+  }
+}
+function renderAlbumCount() {
+  const n = MOMENTS.filter((m) => album.got[m.id]).length;
+  const b = $('albumCount');
+  b.textContent = n; b.toggleAttribute('data-zero', n === 0);
+  $('albumBtn').setAttribute('aria-label', `Album of moments, ${n} of ${MOMENTS.length}`);
+}
+function renderAlbum() {
+  const n = MOMENTS.filter((m) => album.got[m.id]).length;
+  $('albumSub').textContent = n ? `${n} of ${MOMENTS.length} moments. The room takes them by itself.` : 'Empty for now. The room takes a picture when something lovely happens.';
+  const grid = $('albumGrid');
+  grid.innerHTML = '';
+  const esc = (t) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  for (const m of MOMENTS) {
+    const got = album.got[m.id];
+    const li = document.createElement('li');
+    if (got) {
+      li.className = 'polaroid' + (album.fresh === m.id ? ' fresh' : '');
+      const day = new Date(got.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      li.innerHTML = `${got.img ? `<img src="${got.img}" alt="${esc(m.title)}">` : '<span class="ph" aria-hidden="true">✱</span>'}<b>${esc(m.title)}</b><small>${esc(got.clock)} in the room · ${esc(day)}</small>`;
+    } else {
+      li.className = 'polaroid empty';
+      li.innerHTML = m.secret
+        ? `<span class="ph" aria-hidden="true">?</span><b>A secret moment</b><i>Keep the room company.</i>`
+        : `<span class="ph" aria-hidden="true">✱</span><b>${esc(m.title)}</b><i>${esc(m.hint)}</i>`;
+    }
+    grid.appendChild(li);
+  }
+}
+let albumReturn = null;
+function setAlbum(open) {
+  $('albumBack').hidden = !open;
+  if (open) { albumReturn = document.activeElement; renderAlbum(); $('albumClose').focus(); $('catch').hidden = true; }
+  else { album.fresh = null; (albumReturn || $('albumBtn')).focus?.(); }
+}
+$('albumBtn').addEventListener('click', () => setAlbum(true));
+$('catch').addEventListener('click', () => setAlbum(true));
+$('albumClose').addEventListener('click', () => setAlbum(false));
+$('albumBack').addEventListener('click', (e) => { if (e.target === $('albumBack')) setAlbum(false); });
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('albumBack').hidden) { e.stopPropagation(); setAlbum(false); } }, true);
+renderAlbumCount();
 
 /* ===================================================================
    CAMERA: orthographic, turns in quarter steps.
@@ -4230,6 +4452,7 @@ function frame(now) {
   syncOrbs();
   adaptQuality(dt);
   stepProps(dt, time);
+  stepMoments(dt);
   stepAudio();
   stepRain(dt, time);
   stepWet(dt);
@@ -4243,7 +4466,7 @@ function frame(now) {
 }
 
 window.__room = {
-  frames: 0, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, goTo, look, sunlit, lantern, windowState, monstera, lemon, papers, tea,
+  frames: 0, album, MOMENTS, setAlbum, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, goTo, look, sunlit, lantern, windowState, monstera, lemon, papers, tea,
   get: (name) => items.find((i) => i.name === name),
   move(name, x, z, rot = 0) { const it = this.get(name); Object.assign(it, { x, z, rot }); placeItem(it); itemsMoved(); },
   project(v) { const p = new V3(...v).project(camera); return [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight]; },
