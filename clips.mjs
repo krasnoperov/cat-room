@@ -12,7 +12,7 @@ const clips = [
   ['c07-rain', 't=14.5&speed=0.02&rain=1&open=1', 150, `const r=window.__room; ${cam(2.3, -1.35, 0.85, -0.35)}`, `r.view.zoom=2.3+i*0.003; r.resize();`],
   ['c08-dusk-radio', 't=19.7&speed=0.22', 180, `const r=window.__room; r.radio.on=true; r.addProp('floorLamp',{x:1.62,z:-1.15}); r.addProp('candle',{host:'Desk',x:-0.3,y:0.755,z:-0.1}); ${cam(1.6, 0.55, 0.95, -0.9)}`, `const l=r.props.find(p=>p.type==='floorLamp'); if(l) l.on=r.clock.h>20.1; r.view.center.x=0.55-i*0.002;`],
   ['c09-timelapse', 't=9&speed=2.6', 150, `const r=window.__room; ${cam(1.5, 0, 0.9, 0)}`, ``],
-  ['c10-night-turn', 't=22.2&speed=0.01&rain=0', 180, `const r=window.__room; r.radio.on=true; r.addProp('box',{x:0.9,z:0.65}); r.addProp('floorLamp',{x:1.62,z:-1.15}); r.addProp('catTree',{x:-0.2,z:1.35}); r.addProp('windChime'); ${cam(1.0, 0, 0.9, 0)}`, `const l=r.props.find(p=>p.type==='floorLamp'); if(l) l.on=true; const a=(45-i*0.33)*Math.PI/180; r.view.angle=a; r.view.target=a;`],
+  ['c10-night-turn', 't=22.2&speed=0.01&rain=0', 180, `const r=window.__room; r.radio.on=true; r.addProp('box',{x:0.9,z:0.65}); r.addProp('floorLamp',{x:1.62,z:-1.15}); r.addProp('catTree',{x:-0.2,z:1.35}); r.addProp('windChime'); ${cam(1.0, 0, 0.9, 0)}`, `const l=r.props.find(p=>p.type==='floorLamp'); if(l) l.on=true; const a=(45+i*0.36)*Math.PI/180; r.view.angle=a; r.view.target=a;`],
   ['c11-ui-dresser', 'ui=1&t=16.6&speed=0.02&radio=0', 150, `const r=window.__room; ${cam(1.2, 0, 0.9, 0)}`, `if(i===35) r.addProp('catTree',{x:1.2,z:0.95}); if(i===70) r.addProp('box',{x:0.3,z:0.6}); if(i===100) r.addProp('floorLamp',{x:1.62,z:-1.15});`],
 ];
 const only = process.argv.slice(2);
