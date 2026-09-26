@@ -2278,15 +2278,42 @@ PROP_SETUP.radio = (pr, m) => {
 };
 PROP_INFO.radio = () => (radio.on ? `playing ${TRACKS[radio.i]?.title || ''} · click to switch off` : 'click for lo-fi');
 PROP_CLICK.radio = (pr) => { setRadio(!radio.on); pr.knobTurn = (pr.knobTurn || 0) + 1; rememberRadio(); };
-PROP_STEP.radio = (pr, dt) => {
-  if (pr.dial) pr.dial.material = radio.on ? (pr.dialOn ||= glow('#ffcf8a', 2.2)) : pr.dialOff;
+PROP_STEP.radio = (pr, dt, t) => {
+  radioNotes(pr, dt, t);
+  if (pr.dial) pr.dial.material = radio.on ? (pr.dialOn ||= glow('#ffcf8a', 2.8)) : pr.dialOff;
   pr.knobs?.forEach((k, i) => { k.rotation.z = lerp(k.rotation.z, (pr.knobTurn || 0) * (i ? 1.1 : -0.7), damp(dt, 6)); });
   if (radio.panner) {
     const p = pr.group.getWorldPosition(_v2).project(camera);
     radio.panner.pan.value = clamp(p.x * 0.8, -0.8, 0.8);
   }
 };
-PROP_TEARDOWN.radio = () => { if (radio.on) setRadio(false); };
+PROP_TEARDOWN.radio = (pr) => { if (radio.on) setRadio(false); pr.notes?.forEach((n) => n.removeFromParent()); };
+const noteTex = [0, 1].map((k) => canvasTex(64, 64, (g) => {
+  g.fillStyle = '#fff1d6'; g.strokeStyle = '#fff1d6'; g.lineWidth = 5; g.lineCap = 'round';
+  g.shadowColor = 'rgba(90, 50, 40, 0.9)'; g.shadowBlur = 0; g.shadowOffsetX = 0; g.shadowOffsetY = 0;
+  g.filter = 'drop-shadow(0 0 2px rgba(80,45,35,0.95))';
+  if (k === 0) { g.beginPath(); g.ellipse(24, 46, 10, 7.5, -0.4, 0, Math.PI * 2); g.fill(); g.beginPath(); g.moveTo(33, 44); g.lineTo(33, 12); g.quadraticCurveTo(44, 18, 48, 28); g.stroke(); }
+  else { for (const x of [18, 44]) { g.beginPath(); g.ellipse(x, 48, 9, 7, -0.4, 0, Math.PI * 2); g.fill(); } g.beginPath(); g.moveTo(26, 46); g.lineTo(26, 14); g.lineTo(52, 10); g.lineTo(52, 42); g.stroke(); g.lineWidth = 7; g.beginPath(); g.moveTo(26, 16); g.lineTo(52, 12); g.stroke(); }
+}));
+function radioNotes(pr, dt, t) {
+  if (!pr.notes) {
+    pr.notes = [0, 1, 2].map((i) => {
+      const n = noInk(new THREE.Sprite(new THREE.SpriteMaterial({ map: noteTex[i % 2], color: new THREE.Color(1.5, 1.35, 1.1), transparent: true, depthWrite: false, opacity: 0 })));
+      n.renderOrder = 9; n.userData.phase = i / 3;
+      scene.add(n);
+      return n;
+    });
+  }
+  const base = pr.group.getWorldPosition(_v2);
+  pr.noteK = lerp(pr.noteK || 0, radio.on && !radio.el?.paused ? 1 : 0, damp(dt, 3));
+  pr.notes.forEach((n, i) => {
+    const ph = (t * 0.32 + n.userData.phase) % 1;
+    n.position.set(base.x + Math.sin(ph * 5 + i * 2) * 0.05 + (i - 1) * 0.06, base.y + 0.2 + ph * 0.34, base.z + Math.cos(ph * 4 + i) * 0.03);
+    n.scale.setScalar(0.075 + Math.sin(Math.PI * ph) * 0.025);
+    n.material.opacity = pr.noteK * Math.sin(Math.PI * ph) * 0.95;
+    n.visible = pr.noteK > 0.01;
+  });
+}
 
 // bowls: kibble and water go down, a click refills both
 PROP_SETUP.bowls = (pr, m) => { pr.foodMesh = findPart(m, 'food'); pr.waterMesh = findPart(m, 'water'); };
@@ -2810,6 +2837,7 @@ loadGLB('models/pothos.glb').then((scene0) => {
         const nn = String(i).padStart(2, '0');
         const lf = findPart(m, `vine${k}_leaf${nn}`), sg = findPart(m, `vine${k}_seg${nn}`);
         if (!lf) break;
+        lf.scale.setScalar(0.001); lf.visible = false;
         leaves.push(lf); if (sg) segs.push(sg);
       }
       if (leaves.length) vines.push({ glb: true, k, leaves, segs, max: leaves.length });
@@ -3255,10 +3283,16 @@ function autosave(dt) {
 }
 
 /* ---------- room radio: generated lo-fi, and the room's own sounds ---------- */
+// hours each track suits; the rain track waits for rain
 const TRACKS = [
-  { src: 'audio/afternoon-sun.mp3', title: 'Afternoon sun' },
+  { src: 'audio/morning-coffee.mp3', title: 'Morning coffee', hours: [6, 12] },
+  { src: 'audio/cat-nap.mp3', title: 'Cat nap', hours: [9, 17] },
+  { src: 'audio/afternoon-sun.mp3', title: 'Afternoon sun', hours: [12, 18] },
+  { src: 'audio/golden-hour.mp3', title: 'Golden hour', hours: [16, 21] },
+  { src: 'audio/night-lantern.mp3', title: 'Night lantern', hours: [20, 30] },
   { src: 'audio/rain-on-glass.mp3', title: 'Rain on glass', rain: true },
 ];
+const fitsNow = (t) => (weather.rain ? !!t.rain : !t.rain && t.hours && ((clock.h >= t.hours[0] && clock.h < t.hours[1]) || (clock.h + 24 >= t.hours[0] && clock.h + 24 < t.hours[1])));
 const LAYERS = ['amb-city-day', 'amb-city-night', 'amb-rain', 'purr'];
 const radio = { on: false, ctx: null, el: null, master: null, layers: {}, i: -1, dest: null };
 function buildRadio() {
@@ -3291,7 +3325,7 @@ function buildRadio() {
 }
 function nextTrack() {
   const pool = TRACKS.map((t, i) => i).filter((i) => i !== radio.i);
-  const fit = pool.filter((i) => !!TRACKS[i].rain === weather.rain);
+  const fit = pool.filter((i) => fitsNow(TRACKS[i]));
   const choice = (fit.length ? fit : pool)[Math.floor(Math.random() * (fit.length || pool.length))] ?? 0;
   radio.i = choice;
   radio.el.src = TRACKS[choice].src;

@@ -1,0 +1,15 @@
+import { chromium } from '/home/alv/projects/makefx/node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/index.mjs';
+const S = process.argv[2];
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const errs = []; page.on('pageerror', (e) => errs.push(e.message));
+await page.goto('http://localhost:8123/index.html?t=21&paused=1');
+await page.waitForFunction(() => window.__room && window.__room.frames > 5);
+await page.mouse.click(300, 600);
+await page.waitForTimeout(3000);
+console.log(await page.evaluate(() => [window.__room.radio.on, document.getElementById('trackTitle').textContent]));
+await page.evaluate(() => { const r = window.__room; const p = r.props.find((q) => q.type === 'radio'); const at = p.group.getWorldPosition(r.camera.position.clone()); r.view.zoom = 4; r.view.center.copy(at); r.view.center.y += 0.2; r.resize(); });
+await page.waitForTimeout(1500);
+await page.screenshot({ path: `${S}/radio-playing.png`, clip: { x: 390, y: 150, width: 500, height: 450 } });
+console.log(errs.join('\n') || 'no errors');
+await browser.close();
