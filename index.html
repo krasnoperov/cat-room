@@ -353,6 +353,8 @@ const num = (k, d) => (params.has(k) ? parseFloat(params.get(k)) : d);
 const HW = 2, H = 2.7, T = 0.12;
 const WIN = { u0: -1.3, u1: 0.5, y0: 0.6, y1: 2.25 };
 const NEAR_CUT = 0.3;
+/* the way in: a doorway in the east wall, between the lemon tree and the desk */
+const DOOR = { u0: 0.02, u1: 0.9, y0: 0, y1: 2.08 };
 const SEAT = { x0: -HW, x1: -1.45, z0: -1.35, z1: 0.55, top: 0.52 };
 
 /* ---------------- renderer ---------------- */
@@ -496,7 +498,7 @@ await yieldToBrowser();
 const WALL_KEYS = ['W', 'N', 'E', 'S'];
 const WALLS = {
   W: { axis: 'x', pos: -HW, out: -1, span: [-HW - T, HW + T], hole: WIN },
-  E: { axis: 'x', pos: HW, out: 1, span: [-HW - T, HW + T] },
+  E: { axis: 'x', pos: HW, out: 1, span: [-HW - T, HW + T], hole: DOOR },
   N: { axis: 'z', pos: -HW, out: -1, span: [-HW, HW] },
   S: { axis: 'z', pos: HW, out: 1, span: [-HW, HW] },
 };
@@ -573,6 +575,56 @@ const ghost = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false
   shell.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   noInk(shell);
   scene.add(shell);
+}
+
+/* the door, its frame, and a glimpse of the hallway beyond */
+const doorGroup = new THREE.Group();
+{
+  const dz = (DOOR.u0 + DOOR.u1) / 2, dw = DOOR.u1 - DOOR.u0, trim = M.white;
+  const frameMat = toon('#f3ece4');
+  const jambs = [DOOR.u0 - 0.03, DOOR.u1 + 0.03].map((z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(T + 0.04, DOOR.y1 + 0.06, 0.06), frameMat); m.position.set(HW + T / 2, (DOOR.y1 + 0.06) / 2, z); return m; });
+  const head = new THREE.Mesh(new THREE.BoxGeometry(T + 0.04, 0.06, dw + 0.12), frameMat);
+  head.position.set(HW + T / 2, DOOR.y1 + 0.03, dz);
+  // the door leaf, hinged at the far jamb and standing ajar into the hall
+  const hinge = new THREE.Group();
+  hinge.position.set(HW + T, 0, DOOR.u0);
+  const leaf = new THREE.Mesh(new RoundedBoxGeometry(0.04, DOOR.y1 - 0.01, dw - 0.01, 2, 0.008), toon('#d9a878'));
+  leaf.position.set(0.02, (DOOR.y1 - 0.01) / 2, (dw - 0.01) / 2);
+  const panels = [0.55, 1.45].map((y) => { const m = new THREE.Mesh(new RoundedBoxGeometry(0.012, 0.7, dw - 0.22, 2, 0.004), toon('#c99666')); m.position.set(-0.004, y, (dw - 0.01) / 2); return m; });
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.03, 14, 10), toon('#c9a15a'));
+  knob.position.set(-0.03, 1.02, dw - 0.1);
+  hinge.add(leaf, ...panels, knob);
+  hinge.rotation.y = 1.05; // ajar, swung out into the hall
+  // a short hallway: floor, walls and a warm light at its end
+  const hallMat = toon('#e9dccf'), hallFloor = toon('#fff4ea', { map: planks });
+  const hf = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.09, dw + 0.4), hallFloor); hf.position.set(HW + T + 0.6, -0.045, dz);
+  const hb = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.3, dw + 0.4), hallMat); hb.position.set(HW + T + 1.2, 1.15, dz);
+  const hl = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.3, 0.06), hallMat); hl.position.set(HW + T + 0.6, 1.15, dz - dw / 2 - 0.2);
+  const hr = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.3, 0.06), hallMat); hr.position.set(HW + T + 0.6, 1.15, dz + dw / 2 + 0.2);
+  const coat = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.5, 4, 12), toon('#7f9bb8')); coat.position.set(HW + T + 1.12, 1.25, dz + 0.15);
+  const hook = new THREE.Mesh(new THREE.SphereGeometry(0.025, 10, 8), toon('#c9a15a')); hook.position.set(HW + T + 1.16, 1.62, dz + 0.15);
+  doorGroup.add(...jambs, head);
+  shadowAll(doorGroup);
+  scene.add(doorGroup);
+  clipTo(doorGroup, 'E');
+  // the hall is seen only through the doorway: a stencil portal, like the window's
+  const doorPortal = noInk(new THREE.Mesh(
+    new THREE.PlaneGeometry(dw, DOOR.y1),
+    new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, stencilWrite: true, stencilRef: 2, stencilZPass: THREE.ReplaceStencilOp, clippingPlanes: [clip.E] }),
+  ));
+  doorPortal.rotation.y = -Math.PI / 2;
+  doorPortal.position.set(HW + T / 2, DOOR.y1 / 2, dz);
+  doorPortal.renderOrder = 1;
+  scene.add(doorPortal);
+  const hall = new THREE.Group();
+  hall.add(hinge, hf, hb, hl, hr, coat, hook);
+  hall.traverse((o) => {
+    if (!o.isMesh) return;
+    o.material = o.material.clone();
+    Object.assign(o.material, { stencilWrite: true, stencilRef: 2, stencilFunc: THREE.EqualStencilFunc });
+    o.renderOrder = 2;
+  });
+  scene.add(noInk(hall)); // its outlines would draw through the wall otherwise
 }
 
 /* ===================================================================
@@ -655,7 +707,7 @@ makeSash(WIN.u1, -1);
 
 const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 2.5, 10), M.metal);
 rod.rotation.x = Math.PI / 2;
-rod.position.set(-HW + 0.1, WIN.y1 + 0.17, winCenter.z + 0.2);
+rod.position.set(-HW + 0.1, WIN.y1 + 0.17, winCenter.z + 0.62);
 windowGroup.add(rod);
 
 const CURT = { w: 0.85, h: WIN.y1 + 0.15, sx: 18, sy: 26 };
@@ -664,7 +716,7 @@ const curtainBase = curtainGeo.attributes.position.array.slice();
 const curtainMat = toon('#fbf3e3', { side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
 const curtain = new THREE.Mesh(curtainGeo, curtainMat);
 curtain.rotation.y = Math.PI / 2;
-curtain.position.set(-HW + 0.1, WIN.y1 + 0.16 - CURT.h / 2, WIN.u1 + 0.1);
+curtain.position.set(-HW + 0.1, WIN.y1 + 0.16 - CURT.h / 2, SEAT.z1 + 0.06 + CURT.w / 2); // pulled aside, clear of the seat
 windowGroup.add(curtain);
 clipTo(windowGroup, 'W');
 const glassMat = clipCache.get(M.glass.uuid + 'W');
@@ -1132,8 +1184,15 @@ await yieldToBrowser();
 const lantern = { on: false, auto: true };
 const lanternItem = (() => {
   const g = new THREE.Group();
-  const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.6, 5), toon('#4d4552'));
-  cord.position.y = 0.52;
+  // fabric flex from the top of the shade up to a small ceiling rose
+  const top = 0.205, len = H - 1.98 - top - 0.02;
+  const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, len, 10), toon('#e9ddc9'));
+  cord.position.y = top + len / 2;
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.035, 20), toon('#c9a15a'));
+  cap.position.y = top + 0.005;
+  const rose = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.045, 0.03, 24), toon('#f3ece4'));
+  rose.position.y = top + len + 0.005;
+  g.add(cap, rose);
   const ball = new THREE.Mesh(new THREE.SphereGeometry(0.22, 32, 20), M.lanternOff);
   ball.scale.y = 0.94;
   g.add(cord, ball);
@@ -2766,23 +2825,31 @@ function stepHunt(dt) {
   const dist = Math.hypot(dot.x - cat.pos.x, dot.z - cat.pos.z);
   cat.path = [];
   cat.spot = null;
-  if (dist > 0.3) { cat.state = 'hunt'; walkToward(dot, 0.95, dt); cat.stalkT = 0; }
-  else {
+  // run while far, switch to a stalk once close, and only go back to running when the dot gets well away
+  const far = cat.state === 'stalk' ? dist > 0.55 : dist > 0.3;
+  if (far) {
+    cat.state = 'hunt';
+    cat.huntV = lerp(cat.huntV || 0, Math.min(0.85, 0.35 + dist * 0.6), damp(dt, 3));
+    walkToward(dot, cat.huntV, dt);
+    cat.stalkT = 0;
+  } else {
     cat.state = 'stalk';
-    turnToward(dot, dt, 12);
+    cat.huntV = lerp(cat.huntV || 0, 0.12, damp(dt, 4));
+    turnToward(dot, dt, 5);
+    if (dist > 0.16) walkToward(dot, cat.huntV, dt), cat.state = 'stalk';
     cat.stalkT = (cat.stalkT || 0) + dt;
-    if (cat.stalkT > 0.55) { cat.state = 'pounce'; cat.hop = 0; cat.pounce = [cat.pos.clone(), new V3(dot.x, 0, dot.z)]; }
+    if (cat.stalkT > 0.8 && dist < 0.3) { cat.state = 'pounce'; cat.hop = 0; cat.pounce = [cat.pos.clone(), new V3(dot.x, 0, dot.z)]; }
   }
   cat.activity = 'hunting the red dot';
   return true;
 }
 function stepPounce(dt) {
   const [a, b] = cat.pounce;
-  cat.hop += dt / 0.35;
-  const t = Math.min(1, cat.hop);
-  cat.pos.lerpVectors(a, b, t);
-  cat.pos.y = Math.sin(Math.PI * t) * 0.14;
-  if (t >= 1) { cat.state = 'stalk'; cat.stalkT = -0.4; cat.pos.y = 0; }
+  cat.hop += dt / 0.45;
+  const t = Math.min(1, cat.hop), e = t * t * (3 - 2 * t);
+  cat.pos.lerpVectors(a, b, e);
+  cat.pos.y = Math.sin(Math.PI * t) * 0.12;
+  if (t >= 1) { cat.state = 'stalk'; cat.stalkT = -0.6; cat.huntV = 0; cat.pos.y = 0; }
 }
 
 /* ---------- small sounds, made on the spot ---------- */
