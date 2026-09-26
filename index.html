@@ -354,6 +354,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 // Let the controls paint before constructing the room, then yield between
@@ -394,6 +395,10 @@ const SEAT = { x0: -HW, x1: -1.45, z0: -1.35, z1: 0.55, top: 0.52 };
 /* ---------------- renderer ---------------- */
 const canvas = $('gl');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, stencil: true, preserveDrawingBuffer: true });
+/* quality: a desktop tier gets sharper shadows and more AO samples; the pixel ratio
+   starts at the screen's own (up to 2) and then adapts to how fast frames really are */
+const DESKTOP = matchMedia('(pointer: fine)').matches && innerWidth >= 980 && !params.has('fixed');
+const PR_MAX = Math.min(devicePixelRatio, 3), PR_MIN = Math.min(1, devicePixelRatio);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -1332,7 +1337,7 @@ const hemi = new THREE.HemisphereLight('#dfe6ff', '#c9a88f', 1.6);
 scene.add(hemi);
 const sunLight = new THREE.DirectionalLight('#fff1d6', 3);
 sunLight.castShadow = true;
-sunLight.shadow.mapSize.set(2048, 2048);
+sunLight.shadow.mapSize.set(DESKTOP ? 4096 : 2048, DESKTOP ? 4096 : 2048);
 Object.assign(sunLight.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 0.5, far: 30 });
 sunLight.shadow.bias = -0.0004;
 sunLight.shadow.normalBias = 0.02;
@@ -2174,6 +2179,7 @@ const HF = THREE.HalfFloatType;
 const colorRT = new THREE.WebGLRenderTarget(1, 1, { type: HF, samples: 4, stencilBuffer: true });
 const normalRT = new THREE.WebGLRenderTarget(1, 1, { type: HF, depthTexture: new THREE.DepthTexture(1, 1) });
 const bloomA = new THREE.WebGLRenderTarget(1, 1, { type: HF });
+const finalRT = new THREE.WebGLRenderTarget(1, 1, { type: HF }); // the finished frame, before FXAA smooths the ink
 const bloomB = new THREE.WebGLRenderTarget(1, 1, { type: HF });
 const quadVS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
 const fsQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
@@ -2204,18 +2210,19 @@ const blurMat = new THREE.ShaderMaterial({
 });
 
 const paintMat = new THREE.ShaderMaterial({
+  defines: { AO_N: DESKTOP ? 16 : 10 },
   uniforms: {
     tColor: { value: colorRT.texture }, tNormal: { value: normalRT.texture }, tDepth: { value: normalRT.depthTexture },
     tBloom: { value: bloomA.texture },
     uTexel: { value: new THREE.Vector2() }, uNear: { value: 0.1 }, uFar: { value: 100 },
     uFrustum: { value: new THREE.Vector4() }, uInk: { value: new THREE.Color('#4a323c') },
-    uNight: { value: 0 }, uTilt: { value: 0 }, uFocus: { value: 0.45 }, uAO: { value: 1 },
+    uNight: { value: 0 }, uTilt: { value: 0 }, uFocus: { value: 0.45 }, uAO: { value: 1 }, uInkScale: { value: 1 },
     uSkyTop: { value: new THREE.Color('#bcd7ee') }, uSkyBottom: { value: new THREE.Color('#f1e9e2') },
   },
   vertexShader: quadVS,
   fragmentShader: `
     uniform sampler2D tColor, tNormal, tDepth, tBloom;
-    uniform vec2 uTexel; uniform float uNear, uFar, uNight, uTilt, uFocus, uAO;
+    uniform vec2 uTexel; uniform float uNear, uFar, uNight, uTilt, uFocus, uAO, uInkScale;
     uniform vec4 uFrustum; uniform vec3 uInk, uSkyTop, uSkyBottom;
     varying vec2 vUv;
     float D(vec2 uv){ return texture2D(tDepth, uv).x; }
@@ -2241,7 +2248,7 @@ const paintMat = new THREE.ShaderMaterial({
       float dc = D(vUv);
       float edge = 0.0, ao = 0.0;
       if (dc < 0.9999) {
-        vec2 t = uTexel;
+        vec2 t = uTexel * uInkScale;
         float lap = abs(D(vUv - vec2(t.x, 0)) + D(vUv + vec2(t.x, 0)) - 2.0 * dc)
                   + abs(D(vUv - vec2(0, t.y)) + D(vUv + vec2(0, t.y)) - 2.0 * dc)
                   + 0.5 * abs(D(vUv - t) + D(vUv + t) - 2.0 * dc)
@@ -2257,14 +2264,14 @@ const paintMat = new THREE.ShaderMaterial({
         vec3 p = P(vUv);
         vec2 span = vec2(uFrustum.y - uFrustum.x, uFrustum.w - uFrustum.z);
         float rot = hash(gl_FragCoord.xy) * 6.2831;
-        for (int i = 0; i < 12; i++) {
-          float a = float(i) * 2.39996 + rot, r = (float(i) + 0.5) / 12.0;
+        for (int i = 0; i < AO_N; i++) {
+          float a = float(i) * 2.39996 + rot, r = (float(i) + 0.5) / float(AO_N);
           vec2 o = vec2(cos(a), sin(a)) * r * 0.22;
           vec3 q = P(vUv + o / span) - p;
           float dist = length(q);
           ao += max(0.0, dot(nc, q / max(dist, 1e-4)) - 0.12) * (1.0 - smoothstep(0.08, 0.32, dist));
         }
-        ao = clamp(ao / 12.0 * 2.2, 0.0, 1.0) * uAO;
+        ao = clamp(ao / float(AO_N) * 2.2, 0.0, 1.0) * uAO;
       }
       vec3 c = col.rgb;
       c *= mix(vec3(1.0), vec3(0.8, 0.74, 0.9), ao);
@@ -2276,6 +2283,13 @@ const paintMat = new THREE.ShaderMaterial({
       // the sky is part of the picture, so saved stills and videos keep it
       c += mix(uSkyBottom, uSkyTop, vUv.y) * (1.0 - alpha);
       alpha = 1.0;
+      // highlights roll off into warm instead of clipping to white (midtones untouched)
+      float Lraw = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      if (Lraw > 0.72) {
+        float Lc = 0.72 + 0.28 * (1.0 - exp(-(Lraw - 0.72) / 0.28));
+        c *= Lc / Lraw;
+        c = mix(c, c * vec3(1.03, 0.99, 0.93), smoothstep(0.72, 1.0, Lc));
+      }
       // grade: lavender in the shade, apricot in the light
       float lum = dot(c, vec3(0.2126, 0.7152, 0.0722)) / max(alpha, 0.001);
       vec3 shade = mix(vec3(0.94, 0.9, 1.06), vec3(0.9, 0.9, 1.1), uNight);
@@ -2290,6 +2304,12 @@ const paintMat = new THREE.ShaderMaterial({
   depthTest: false, depthWrite: false,
 });
 
+// the frame stays linear until FXAA, which then writes the screen's colour space
+const fxaaMat = new THREE.ShaderMaterial({
+  ...FXAAShader, uniforms: THREE.UniformsUtils.clone(FXAAShader.uniforms), depthTest: false, depthWrite: false,
+  fragmentShader: FXAAShader.fragmentShader.replace('gl_FragColor = ApplyFXAA( tDiffuse, resolution.xy, vUv );', 'gl_FragColor = ApplyFXAA( tDiffuse, resolution.xy, vUv );\n#include <colorspace_fragment>'),
+});
+fxaaMat.uniforms.tDiffuse.value = finalRT.texture;
 const normalMats = new Map();
 /* view-space normals for cut-out leaves: MeshNormalMaterial ignores masks */
 function cutNormalMat(mask, side, planes) {
@@ -2332,6 +2352,8 @@ function sizeTargets() {
   blurMat.userData.texel = new THREE.Vector2(1 / bw, 1 / bh);
   const px = Math.max(1, renderer.getPixelRatio() * 0.8);
   paintMat.uniforms.uTexel.value.set(px / v.x, px / v.y);
+  finalRT.setSize(v.x, v.y);
+  fxaaMat.uniforms.resolution.value.set(1 / v.x, 1 / v.y);
 }
 const swapped = [];
 const look = { tilt: 0, tiltTarget: 0, focus: 0.45 };
@@ -2367,7 +2389,11 @@ function renderFrame() {
     blurMat.uniforms.tSrc.value = bloomA.texture; blurMat.uniforms.uDir.value.set(tx.x * (1 + i), 0); runPass(blurMat, bloomB);
     blurMat.uniforms.tSrc.value = bloomB.texture; blurMat.uniforms.uDir.value.set(0, tx.y * (1 + i)); runPass(blurMat, bloomA);
   }
-  runPass(paintMat, null);
+  // ink stays the same size relative to the room: thinner when the room is small on screen
+  const cssPerUnit = innerHeight / ((camera.top - camera.bottom) / camera.zoom);
+  paintMat.uniforms.uInkScale.value = clamp(cssPerUnit / 150, 0.55, 1.35);
+  runPass(paintMat, finalRT);
+  runPass(fxaaMat, null);
 }
 
 /* ===================================================================
@@ -3881,6 +3907,19 @@ updateWalls(-1);
 for (const k of WALL_KEYS) buildWall(k);
 
 
+/* adapt the pixel ratio to the device: sharper while frames are quick, lighter when they are not */
+const adapt = { t: 0, n: 0, sum: 0, cool: 3 };
+function adaptQuality(dt) {
+  if (FIXED || document.hidden) return;
+  adapt.sum += dt; adapt.n++; adapt.t += dt; adapt.cool -= dt;
+  if (adapt.t < 1.5 || adapt.cool > 0) return;
+  const ms = (adapt.sum / adapt.n) * 1000, pr = renderer.getPixelRatio();
+  adapt.t = adapt.sum = adapt.n = 0;
+  let next = pr;
+  if (ms < 13 && pr < PR_MAX) next = Math.min(PR_MAX, pr + 0.25);
+  else if (ms > 26 && pr > PR_MIN) next = Math.max(PR_MIN, pr - 0.25);
+  if (next !== pr) { renderer.setPixelRatio(next); resize(); adapt.cool = 2; }
+}
 function frame(now) {
   if (!FIXED && document.hidden) { last = now; requestAnimationFrame(frame); return; }
   const dt = Math.min(0.05, (now - last) / 1000);
@@ -4054,6 +4093,7 @@ function frame(now) {
   stepPapers(dt, time);
   stepCat(dt, time);
   stepRecording(dt);
+  adaptQuality(dt);
   stepProps(dt, time);
   stepAudio();
   stepRain(dt, time);
