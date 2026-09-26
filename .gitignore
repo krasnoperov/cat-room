@@ -9,4 +9,3 @@ videos/*/snapshots/
 videos/*/.hyperframes/
 videos/*/renders/
 *.mp4
-!audio/*.mp3
