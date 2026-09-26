@@ -1,0 +1,14 @@
+import { chromium } from '/home/alv/projects/makefx/node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/index.mjs';
+const [out, t = '13'] = process.argv.slice(2);
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const errs = []; page.on('pageerror', (e) => errs.push(e.message));
+await page.goto(`http://localhost:8123/index.html?t=${t}&paused=1&clean=1`);
+await page.waitForFunction(() => window.__room && window.__room.frames > 5);
+await page.evaluate(() => { const r = window.__room; for (const t of ['bowls', 'wateringCan', 'yarn', 'box', 'catTree', 'floorLamp', 'birdFeeder', 'windChime', 'easel']) r.addProp(t); r.addProp('candle', { host: 'Desk', x: -0.3, y: 0.755, z: -0.1 }); });
+await page.waitForTimeout(3500);
+await page.evaluate(() => { const r = window.__room; r.birds.forEach((b) => { b.state = 'arriving'; b.t = 5; b.stay = 99; }); });
+await page.waitForTimeout(2500);
+await page.screenshot({ path: out });
+console.log(errs.join('\n') || 'no errors');
+await browser.close();

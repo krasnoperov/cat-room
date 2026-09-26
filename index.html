@@ -56,7 +56,7 @@
   .pill.primary:hover { background: #d27a3c; }
   .pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .radio {
-    position: fixed; left: 28px; bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+    position: fixed; left: 28px; top: calc(122px + env(safe-area-inset-top, 0px));
     display: flex; align-items: center; gap: 10px; padding: 7px 8px 7px 14px;
     border-radius: 999px; background: rgba(255, 250, 243, 0.78); border: 1px solid rgba(255, 255, 255, 0.7);
     box-shadow: 0 8px 24px rgba(65, 56, 77, 0.12);
@@ -64,6 +64,7 @@
     color: #41384d; transition: opacity 0.4s ease;
   }
   body.photo .radio, body.recording .radio { opacity: 0; pointer-events: none; }
+  body.clean .radio { display: none; }
   .radio-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .radio-text b { font: 700 13px/1.1 var(--f-ui); white-space: nowrap; }
   .radio-text em { font: italic 400 12px/1.1 var(--f-title); color: #6d6479; white-space: nowrap; }
@@ -76,7 +77,7 @@
   .eq i:nth-child(2) { animation-delay: -0.3s; } .eq i:nth-child(3) { animation-delay: -0.7s; } .eq i:nth-child(4) { animation-delay: -0.5s; }
   @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 15px; } }
   @media (prefers-reduced-motion: reduce) { .eq i { animation: none; height: 9px; } }
-  @media (max-width: 720px) { .radio { left: auto; right: 16px; bottom: auto; top: calc(16px + env(safe-area-inset-top, 0px)); } .radio-text em { display: none; } }
+  @media (max-width: 720px) { .radio { left: 16px; top: calc(100px + env(safe-area-inset-top, 0px)); } .radio-text em { display: none; } }
   .shelf {
     position: fixed; right: 20px; bottom: calc(86px + env(safe-area-inset-bottom, 0px));
     width: min(380px, calc(100vw - 32px)); max-height: min(560px, calc(100vh - 140px)); overflow: auto;
@@ -97,7 +98,7 @@
   .card .pill { height: 32px; padding: 0 14px; font-size: 12.5px; flex: none; }
   .shelf-hint { margin: 10px 4px 2px; font: 600 11.5px/1.4 var(--f-ui); color: #6d6479; }
   body.photo .shelf, body.recording .shelf { display: none; }
-  @media (max-width: 720px) { .shelf { right: 16px; bottom: calc(120px + env(safe-area-inset-bottom, 0px)); } }
+  @media (max-width: 720px) { .shelf { right: 16px; bottom: calc(176px + env(safe-area-inset-bottom, 0px)); max-height: calc(100vh - 346px); } }
   #gl.laser { cursor: crosshair; }
   .toast {
     position: fixed; left: 50%; top: calc(24px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
@@ -2146,7 +2147,8 @@ const PROP_TYPES = {
   easel:       { label: 'Easel', note: 'The room paints itself', place: 'floor', size: [0.6, 0.5], blocks: true },
 };
 const SLOTS = {
-  birdFeeder: () => ({ pos: new V3(-HW - 0.36, 1.92, winCenter.z + 0.3), wall: 'W' }),
+  // outside, in the open half of the window as seen from the usual corner
+  birdFeeder: () => ({ pos: new V3(-HW - 0.34, 1.62, -0.95), wall: 'W' }),
   windChime: () => ({ pos: new V3(-HW + 0.22, WIN.y1 + 0.1, WIN.u0 + 0.35), wall: 'W' }),
 };
 const props = [];
@@ -2166,7 +2168,11 @@ function freeSpot(w, d) {
   for (let x = -HW + w / 2 + 0.05; x <= HW - w / 2 - 0.05; x += 0.1) for (let z = -HW + d / 2 + 0.05; z <= HW - d / 2 - 0.05; z += 0.1) {
     if (overlaps(probe, x, z, 0)) continue;
     if (Math.hypot(x - cat.pos.x, z - cat.pos.z) < 0.3 || x - w / 2 < SEAT.x1 + 0.35) continue;
-    const wallGap = Math.min(x - w / 2 + HW, HW - x - w / 2, z - d / 2 + HW, HW - z - d / 2);
+    // only the walls you can see: the near ones are cut low and would hide it
+    const gaps = { W: x - w / 2 + HW, E: HW - x - w / 2, N: z - d / 2 + HW, S: HW - z - d / 2 };
+    const back = WALL_KEYS.filter((k) => !isNear(k));
+    const nearPenalty = WALL_KEYS.filter((k) => isNear(k)).reduce((sum, k) => sum + Math.max(0, 0.7 - gaps[k]) * 3, 0);
+    const wallGap = Math.min(...(back.length ? back : WALL_KEYS).map((k) => gaps[k])) + nearPenalty;
     let crowd = 0;
     for (const o of items) if (o.kind === 'floor' || o.kind === 'small') crowd += Math.max(0, 0.9 - Math.hypot(o.x - x, o.z - z));
     const score = wallGap * 3 + crowd * 1.5 + Math.hypot(x - 0.4, z - 0.4) * 0.15;
@@ -2195,6 +2201,7 @@ function addProp(type, at = {}) {
   if (T.place === 'slot') {
     const slot = SLOTS[type]();
     group.position.copy(slot.pos);
+    if (type === 'birdFeeder') group.scale.setScalar(1.4); // it is seen through the window, from afar
     scene.add(group);
     it = addItem({ name: T.label, kind: 'fixed', group, w: 0, d: 0, blocks: false, info: () => propInfo(pr), click: () => propClick(pr) });
     pr.wall = slot.wall;
@@ -2472,6 +2479,7 @@ PROP_SETUP.birdFeeder = (pr, m) => {
   pr.nextVisit = time + 6;
   for (let i = 0; i < 2; i++) {
     const b = { group: new THREE.Group(), state: 'away', t: 0, i, feeder: pr };
+    b.group.scale.setScalar(1.4);
     b.group.visible = false;
     scene.add(b.group);
     modelFor('bird', 'models/props/bird.glb').then((model) => {
@@ -3055,6 +3063,7 @@ function dropCat() {
 
 /* dock */
 if (params.has('clean')) for (const el of document.querySelectorAll('.brand, .hint, .dock')) el.hidden = true;
+if (params.has('clean')) document.body.classList.add('clean');
 const clock = { h: num('t', 17), playing: num('paused', 0) < 0.5 };
 const timeInput = $('time'), cutInput = $('cut');
 timeInput.value = Math.round(clock.h * 60);

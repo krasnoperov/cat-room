@@ -1,0 +1,13 @@
+import { chromium } from '/home/alv/projects/makefx/node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/index.mjs';
+const [out, w, h] = process.argv.slice(2);
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const page = await browser.newPage({ viewport: { width: +w, height: +h } });
+const errs = []; page.on('pageerror', (e) => errs.push(e.message));
+await page.goto('http://localhost:8123/index.html?t=19.5&paused=1');
+await page.waitForFunction(() => window.__room && window.__room.frames > 5);
+await page.evaluate(() => { window.__room.addProp('box'); window.__room.addProp('floorLamp'); });
+await page.click('#shelfBtn');
+await page.waitForTimeout(2500);
+await page.screenshot({ path: out });
+console.log(errs.join('\n') || 'no errors');
+await browser.close();
