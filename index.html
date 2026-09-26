@@ -77,6 +77,28 @@
   @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 15px; } }
   @media (prefers-reduced-motion: reduce) { .eq i { animation: none; height: 9px; } }
   @media (max-width: 720px) { .radio { left: auto; right: 16px; bottom: auto; top: calc(16px + env(safe-area-inset-top, 0px)); } .radio-text em { display: none; } }
+  .shelf {
+    position: fixed; right: 20px; bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+    width: min(380px, calc(100vw - 32px)); max-height: min(560px, calc(100vh - 140px)); overflow: auto;
+    box-sizing: border-box; padding: 14px 14px 10px;
+    border-radius: 18px; background: rgba(255, 250, 243, 0.9); border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 14px 40px rgba(65, 56, 77, 0.18);
+    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    color: #41384d;
+  }
+  .shelf header { display: flex; align-items: center; justify-content: space-between; margin: 0 2px 8px 4px; }
+  .shelf h2 { margin: 0; font: 500 19px/1.2 var(--f-title); }
+  .shelf ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .card { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.6); }
+  .card.placed { background: rgba(224, 137, 74, 0.1); }
+  .card-text { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+  .card-text b { font: 700 13.5px/1.2 var(--f-ui); }
+  .card-text em { font: italic 400 12.5px/1.3 var(--f-title); color: #6d6479; }
+  .card .pill { height: 32px; padding: 0 14px; font-size: 12.5px; flex: none; }
+  .shelf-hint { margin: 10px 4px 2px; font: 600 11.5px/1.4 var(--f-ui); color: #6d6479; }
+  body.photo .shelf, body.recording .shelf { display: none; }
+  @media (max-width: 720px) { .shelf { right: 16px; bottom: calc(120px + env(safe-area-inset-bottom, 0px)); } }
+  #gl.laser { cursor: crosshair; }
   .toast {
     position: fixed; left: 50%; top: calc(24px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
     padding: 10px 14px; border-radius: 12px; background: rgba(50, 43, 60, 0.9); color: #fbf5ec;
@@ -200,8 +222,11 @@
   <span class="sep"></span>
   <label class="field">Walls <input id="cut" type="range" min="0.3" max="2.7" step="0.01" value="2.7" aria-label="Wall height"></label>
   <span class="sep"></span>
-  <button id="radioBtn" type="button" aria-label="Room radio" aria-pressed="false" title="Room radio">
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 14.5V5l8-1.6v9.4"/><circle cx="5.6" cy="14.6" r="1.9"/><circle cx="13.6" cy="12.9" r="1.9"/></svg>
+  <button id="shelfBtn" type="button" aria-label="Add things to the room" aria-expanded="false" aria-controls="shelf" title="Add things">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M10 4.5v11M4.5 10h11"/></svg>
+  </button>
+  <button id="laserBtn" type="button" aria-label="Laser pointer" aria-pressed="false" title="Laser pointer">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3.5 16.5l7-7"/><circle cx="13.5" cy="6.5" r="2.2" fill="#e0584a" stroke="none"/><path d="M13.5 1.8v1.4M13.5 9.8v1.4M18.2 6.5h-1.4M10.2 6.5H8.8"/></svg>
   </button>
   <button id="rain" type="button" aria-label="Rain" aria-pressed="false" title="Rain">
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12.5h8.2a3 3 0 0 0 .4-6A4.6 4.6 0 0 0 5.8 7.4 2.6 2.6 0 0 0 6 12.5z"/><path d="M7.5 15l-.7 1.6M10.6 15l-.7 1.6M13.7 15l-.7 1.6"/></svg>
@@ -229,6 +254,12 @@
   <button id="recStop" type="button" class="pill">Stop</button>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<section class="shelf" id="shelf" aria-label="Things to add" hidden>
+  <header><h2>Add to the room</h2><button id="shelfClose" type="button" class="radio-btn" aria-label="Close">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg></button></header>
+  <ul id="shelfList"></ul>
+  <p class="shelf-hint">Drag things to move them · Delete removes what you point at</p>
+</section>
 <div class="radio" id="radio" hidden>
   <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
   <span class="radio-text"><b id="trackTitle">Cat Room Radio</b><em>Cat Room Radio · lo-fi</em></span>
@@ -875,7 +906,7 @@ const monsteraItem = (() => {
   shadowAll(g);
   return addItem({
     name: 'Monstera', group: g, w: 0.42, d: 0.42,
-    info: () => `Monstera · <em>${monsteraCount()} leaves · ${monstera.lit ? 'soaking up the sun' : 'waiting for sun'}</em>`,
+    info: () => `Monstera · <em>${monsteraCount()} leaves · ${monstera.lit ? 'soaking up the sun' : 'waiting for sun'}${waterNote(monstera)}</em>`,
   });
 })();
 function monsteraCount() { return 4 + Math.floor(monstera.growth * 5.01); }
@@ -909,7 +940,7 @@ const lemonItem = (() => {
   shadowAll(g);
   return addItem({
     name: 'Lemon tree', group: g, w: 0.34, d: 0.34,
-    info: () => `Lemon tree · <em>${lemonCount()} ${lemonCount() === 1 ? 'lemon' : 'lemons'} · ${lemon.lit ? 'in the sun' : 'wants the sun'}</em>`,
+    info: () => `Lemon tree · <em>${lemonCount()} ${lemonCount() === 1 ? 'lemon' : 'lemons'} · ${lemon.lit ? 'in the sun' : 'wants the sun'}${waterNote(lemon)}</em>`,
   });
 })();
 function lemonCount() { return Math.floor(lemon.growth * 6.01); }
@@ -1007,7 +1038,7 @@ function hangingPothos(x, y, seed) {
     }
     vines.push(vine);
   }
-  const p = { x, y: y + 0.1, z: -HW + 0.1, vines, growth: num('grow', 0.35), lit: 0 };
+  const p = { x, y: y + 0.1, z: -HW + 0.1, vines, growth: num('grow', 0.35), lit: 0, pot, shelfTop: y - 0.0025 };
   pothos.push(p);
   return p;
 }
@@ -1321,6 +1352,10 @@ const POSES = {
   sleep: { y: -0.07, z: 0, pitch: 0.03, arch: -0.03, curl: 0.14, neck: 0.04, hp: 0.14, hy: -0.12, hr: -0.08, fx: 0.038, fz: 0.06, bx: 0.04, bz: -0.03, tl: -1.5, tc: 0.04, tw: 0.78, eye: 0 },
   held:  { y: 0.02, z: 0, pitch: -1.1, arch: 0, curl: 0, neck: 0.5, hp: 0.35, hy: 0, hr: 0, fx: 0.046, fz: 0.086, bx: 0.052, bz: -0.078, tl: -0.9, tc: 0.05, tw: 0, eye: 1 },
 };
+POSES.eat = { ...POSES.walk, y: -0.012, pitch: 0.12, neck: 0.55, hp: 0.65, tl: 0.3, eye: 0.55 };
+POSES.meow = { ...POSES.sit, neck: 0.15, hp: -0.3, eye: 1 };
+POSES.crouch = { ...POSES.walk, y: -0.045, pitch: 0.06, neck: -0.1, hp: -0.08, tl: -0.35, tc: 0.02, eye: 1 };
+const POSE_OF = { hop: 'walk', hunt: 'walk', watch: 'sit', bat: 'sit', drink: 'eat', stalk: 'crouch' };
 cat.pose = { ...POSES.sleep };
 
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _pw = new THREE.Quaternion(), _gw = new THREE.Quaternion();
@@ -1372,12 +1407,12 @@ function poseCat(dt, time) {
   cat.petT = Math.max(0, cat.petT - dt);
   heart.t = Math.min(1, heart.t + dt / 1.6);
   if (!cat.model) return;
-  const p = cat.pose, target = POSES[cat.state === 'hop' ? 'walk' : cat.state] || POSES.sit;
+  const p = cat.pose, target = POSES[POSE_OF[cat.state] || cat.state] || POSES.sit;
   const k = damp(dt, 6);
   for (const key in target) p[key] = lerp(p[key], target[key], k);
   for (const [bone, q] of cat.rest) bone.quaternion.copy(q);
   const B = cat.bones;
-  const walking = cat.state === 'walk' || cat.state === 'hop';
+  const walking = cat.state === 'walk' || cat.state === 'hop' || cat.state === 'hunt';
   const breathe = cat.state === 'sleep' ? Math.sin(time * 1.6) : Math.sin(time * 2.4) * 0.3;
   B.pelvis.position.copy(cat.pelvisRest);
   B.pelvis.position.y += p.y + (walking ? Math.abs(Math.sin(cat.phase)) * 0.006 : 0);
@@ -1408,7 +1443,12 @@ function poseCat(dt, time) {
       fz += Math.sin(ph) * 0.075;
       fy += Math.max(0, Math.cos(ph)) * 0.035;
     }
-    if (cat.state === 'held') {
+    if (cat.state === 'bat' && i === 1) {
+      // a quick swipe of the left front paw
+      const sw = Math.max(0, Math.sin(clamp((cat.stateT - 0.15) / 0.5, 0, 1) * Math.PI));
+      _tgt.set(x, 0.017 + sw * 0.09, z + sw * 0.1);
+      cat.group.localToWorld(_tgt);
+    } else if (cat.state === 'held') {
       L.upper.getWorldPosition(_a);
       _tgt.copy(_a).add(_v.set(0, -0.11, 0.02).applyQuaternion(_gw));
     } else {
@@ -1495,101 +1535,226 @@ function warmth(p, onSeat) {
     const d = Math.hypot(p.x - lanternLight.position.x, p.z - lanternLight.position.z);
     w += 1.6 * Math.max(0, 1 - d / 1.7);
   }
+  for (const pr of props) if (pr.type === 'floorLamp' && pr.on) {
+    const d = Math.hypot(p.x - pr.item.x, p.z - pr.item.z);
+    w += 1.4 * Math.max(0, 1 - d / 1.2);
+  }
   const bed = bedItem;
   if (Math.hypot(p.x - bed.x, p.z - bed.z) < 0.18) w += 1.1;
   if (onSeat) w += 0.4;
   if (Math.hypot(p.x - rugItem.x, p.z - rugItem.z) < 0.8) w += 0.25;
   return w;
 }
+/* a floor cell next to a point, reachable, closest to the cat */
+function floorNear(p, reach = 0.36) {
+  let best = null, bd = Infinity;
+  for (let a = 0; a < 24; a++) {
+    const ang = (a / 24) * Math.PI * 2;
+    const q = new V3(p.x + Math.sin(ang) * reach, 0, p.z + Math.cos(ang) * reach);
+    if (Math.abs(q.x) > HW - 0.15 || Math.abs(q.z) > HW - 0.15 || blocked[cellOf(q.x) * GN + cellOf(q.z)]) continue;
+    const d = Math.hypot(q.x - cat.pos.x, q.z - cat.pos.z);
+    if (d < bd) { bd = d; best = q; }
+  }
+  return best;
+}
+/* every place the cat might go, with what it would do there */
 function candidates() {
   const out = [];
   for (let i = 0; i < GN; i++) for (let j = 0; j < GN; j++) {
     if (blocked[i * GN + j]) continue;
-    out.push({ p: new V3(cellCenter(i), 0, cellCenter(j)), seat: false });
+    out.push({ p: new V3(cellCenter(i), 0, cellCenter(j)), kind: 'rest' });
   }
-  for (let z = SEAT.z0 + 0.25; z <= SEAT.z1 - 0.2; z += 0.25) out.push({ p: new V3(-1.72, SEAT.top, z), seat: true });
+  const watching = birds.some((b) => b.state === 'perched');
+  for (let z = SEAT.z0 + 0.25; z <= SEAT.z1 - 0.2; z += 0.25) {
+    out.push({ p: new V3(-1.72, SEAT.top, z), seat: true, kind: watching ? 'watch' : 'rest', bonus: watching ? 3 : 0, hops: [new V3(-1.3, 0, z)] });
+  }
   const b = bedItem;
-  out.push({ p: new V3(b.x, 0.05, b.z), seat: false, bed: true });
+  out.push({ p: new V3(b.x, 0.05, b.z), kind: 'rest' });
+  for (const pr of props) {
+    if (pr.type === 'box' && time > (cat.boxBoredUntil || 0)) {
+      const c = pr.group.getWorldPosition(new V3());
+      const from = floorNear(c, 0.36);
+      if (from) out.push({ p: new V3(c.x, 0.02, c.z), kind: 'box', bonus: 4, hops: [from], away: from });
+    }
+    if (pr.type === 'catTree' && pr.perches) {
+      const [low, high] = pr.perches.map((o) => o.getWorldPosition(new V3()));
+      const from = floorNear(low, 0.3);
+      if (from) {
+        out.push({ p: low, kind: 'perch', bonus: 0.7, hops: [from], away: from });
+        out.push({ p: high, kind: 'perch', bonus: 1.1 + sun.night * 1.4, hops: [from, low], away: from });
+      }
+    }
+    if (pr.type === 'bowls' && cat.hungry) {
+      const c = pr.group.getWorldPosition(new V3());
+      const front = new V3(0, 0, 0.22).applyQuaternion(pr.group.getWorldQuaternion(new THREE.Quaternion())).add(c);
+      front.y = 0;
+      if (pr.food > 0.1) out.push({ p: front, kind: 'eat', bonus: 8, face: c, bowl: pr });
+      else out.push({ p: meowSpot(), kind: 'meow', bonus: 8 });
+    }
+  }
   return out;
 }
+/* in front of the room, facing you */
+function meowSpot() {
+  const cx = Math.cos(view.angle), cz = Math.sin(view.angle);
+  return new V3(clamp(cx * 1.1, -HW + 0.3, HW - 0.3), 0, clamp(cz * 1.1, -HW + 0.3, HW - 0.3));
+}
 function scoreOf(c) {
-  return warmth(c.p, c.seat) - 0.06 * Math.hypot(c.p.x - cat.pos.x, c.p.z - cat.pos.z);
+  return warmth(c.p, c.seat) + (c.bonus || 0) - 0.06 * Math.hypot(c.p.x - cat.pos.x, c.p.z - cat.pos.z);
 }
 function onSeat(p) { return p.x < SEAT.x1 - 0.02 && p.z > SEAT.z0 && p.z < SEAT.z1 && p.y > 0.3; }
+function hereScore() {
+  const c = cat.spot;
+  return warmth(cat.pos, onSeat(cat.pos)) + (c && c.p.distanceTo(cat.pos) < 0.08 ? c.bonus || 0 : 0);
+}
 
 function decide() {
-  const here = { p: cat.pos.clone(), seat: onSeat(cat.pos) };
-  const hereScore = warmth(here.p, here.seat);
+  // a ball of yarn nearby is sometimes more interesting than anything warm
+  const yarn = props.find((pr) => pr.type === 'yarn');
+  if (yarn && cat.state !== 'sleep' && time > (cat.playBoredUntil || 0) && Math.random() < 0.35) {
+    const at = yarn.ball.position;
+    if (Math.hypot(at.x - cat.pos.x, at.z - cat.pos.z) < 2.4) { cat.bats = 2 + Math.floor(Math.random() * 3); return goTo({ p: floorNear(at, 0.16) || at.clone().setY(0), kind: 'play', face: at }); }
+  }
   let best = null, bestScore = -Infinity;
   for (const c of candidates()) { const s = scoreOf(c); if (s > bestScore) { bestScore = s; best = c; } }
-  if (!best || bestScore < hereScore + 0.35) return;
+  if (!best || bestScore < hereScore() + 0.35) return;
   goTo(best);
 }
 function goTo(c) {
+  if (!c || !c.p) return;
   const legs = [];
-  const fromSeat = onSeat(cat.pos);
   let start = cat.pos.clone();
-  if (fromSeat) {
-    const land = new V3(-1.3, 0, clamp(cat.pos.z, SEAT.z0 + 0.1, SEAT.z1 - 0.1));
+  if (start.y > 0.05 || cat.inBox) {
+    // come down the way we went up
+    const land = cat.landing ? cat.landing.clone() : floorNear(start, 0.35) || new V3(start.x, 0, start.z);
     legs.push({ hop: [start.clone(), land.clone()] });
     start = land;
   }
-  if (c.seat) {
-    const launch = new V3(-1.3, 0, c.p.z);
-    const path = findPath(start, launch);
-    if (!path) return;
-    legs.push(...path.map((p) => ({ walk: p })), { walk: launch }, { hop: [launch.clone(), c.p.clone()] });
-  } else {
-    const path = findPath(start, c.p);
-    if (!path) return;
-    legs.push(...path.map((p) => ({ walk: p })), { walk: c.p.clone() });
+  const first = c.hops ? c.hops[0] : c.p;
+  const path = findPath(start, first);
+  if (!path) return;
+  legs.push(...path.map((p) => ({ walk: p })), { walk: first.clone().setY(0) });
+  if (c.hops) {
+    const chain = [...c.hops, c.p];
+    for (let i = 0; i < chain.length - 1; i++) legs.push({ hop: [chain[i].clone(), chain[i + 1].clone()] });
   }
   cat.path = legs;
   cat.spot = c;
+  cat.landing = null;
+  cat.inBox = false;
   cat.state = 'walk';
+}
+function arrive() {
+  const c = cat.spot || { kind: 'rest' };
+  cat.stateT = 0;
+  if (c.hops) cat.landing = c.away || c.hops[0];
+  if (c.kind === 'box') cat.inBox = true;
+  if (c.face) { const yaw = Math.atan2(c.face.x - cat.pos.x, c.face.z - cat.pos.z); cat.yaw = yaw; }
+  cat.state = { eat: 'eat', meow: 'meow', play: 'bat', watch: 'watch' }[c.kind] || 'sit';
+}
+function turnToward(target, dt, rate = 10) {
+  const yaw = Math.atan2(target.x - cat.pos.x, target.z - cat.pos.z);
+  cat.yaw += Math.atan2(Math.sin(yaw - cat.yaw), Math.cos(yaw - cat.yaw)) * damp(dt, rate);
+}
+function walkToward(target, speed, dt) {
+  const d = new V3(target.x - cat.pos.x, 0, target.z - cat.pos.z);
+  const dist = d.length();
+  if (dist < 0.02) return true;
+  cat.pos.addScaledVector(d.normalize(), Math.min(dist, speed * dt));
+  cat.pos.y = 0;
+  turnToward(target, dt);
+  cat.phase += dt * (2 * Math.PI / 0.75) * (speed / 0.4);
+  return false;
 }
 function stepCat(dt, time) {
   if (cat.held) { cat.state = 'held'; cat.activity = 'being held, patiently'; return; }
   cat.stateT += dt;
+  // meal times: 08:00 and 19:00
+  const meal = [8, 19].find((h) => clock.h >= h && clock.h < h + 0.25);
+  if (meal !== undefined && cat.lastMeal !== meal && props.some((pr) => pr.type === 'bowls')) { cat.hungry = true; cat.lastMeal = meal; cat.decideT = 0.2; cat.replan = true; }
+
+  if (stepHunt(dt)) return;
   if (cat.state === 'walk' || cat.state === 'hop') {
     const leg = cat.path[0];
-    if (!leg) { cat.state = 'sit'; cat.stateT = 0; return; }
+    if (!leg) { arrive(); return; }
     if (leg.walk) {
       cat.state = 'walk';
-      const d = new V3(leg.walk.x - cat.pos.x, 0, leg.walk.z - cat.pos.z);
-      const dist = d.length();
-      const speed = 0.4;
-      if (dist < 0.02) { cat.path.shift(); return; }
-      const step = Math.min(dist, speed * dt);
-      cat.pos.addScaledVector(d.normalize(), step);
-      cat.pos.y = 0;
-      const yaw = Math.atan2(d.x, d.z);
-      cat.yaw += Math.atan2(Math.sin(yaw - cat.yaw), Math.cos(yaw - cat.yaw)) * damp(dt, 10);
-      cat.phase += dt * (2 * Math.PI / 0.75);
+      if (cat.replan && cat.pos.y < 0.05) { cat.replan = false; const was = cat.spot; decide(); if (cat.spot !== was) return; }
+      if (walkToward(leg.walk, 0.4, dt)) { cat.path.shift(); return; }
       if (Math.hypot(cat.pos.x - monsteraItem.x, cat.pos.z - monsteraItem.z) < 0.4) brushPlant();
     } else if (leg.hop) {
       if (cat.state !== 'hop') { cat.state = 'hop'; cat.hop = 0; }
-      cat.hop += dt / 0.45;
       const [a, b] = leg.hop;
+      cat.hop += dt / (0.3 + 0.35 * Math.min(1, Math.abs(b.y - a.y) / 0.5));
       const t = Math.min(1, cat.hop);
       cat.pos.lerpVectors(a, b, t);
-      cat.pos.y = lerp(a.y, b.y, t) + Math.sin(Math.PI * t) * 0.22;
-      const yaw = Math.atan2(b.x - a.x, b.z - a.z);
-      cat.yaw += Math.atan2(Math.sin(yaw - cat.yaw), Math.cos(yaw - cat.yaw)) * damp(dt, 14);
+      cat.pos.y = lerp(a.y, b.y, t) + Math.sin(Math.PI * t) * (0.12 + Math.abs(b.y - a.y) * 0.4);
+      if (Math.hypot(b.x - a.x, b.z - a.z) > 0.02) turnToward(b, dt, 14);
       if (t >= 1) { cat.path.shift(); cat.state = 'walk'; }
     }
-    cat.activity = 'heading for the warm spot';
+    cat.activity = { eat: 'off to dinner', meow: 'coming to tell you something', play: 'eyeing the yarn', box: 'drawn to the box', perch: 'climbing the cat tree', watch: 'going to watch the birds' }[cat.spot?.kind] || 'heading for the warm spot';
     return;
   }
-  if (cat.state === 'sit' && cat.stateT > 2.2) { cat.state = 'sleep'; cat.stateT = 0; }
+  if (cat.state === 'eat') {
+    const bowl = cat.spot?.bowl;
+    cat.activity = 'eating, crunch crunch';
+    if (bowl) bowl.food = Math.max(0, bowl.food - dt * 0.06);
+    if (cat.stateT > 5) { cat.hungry = false; cat.state = 'sit'; cat.stateT = 0; cat.decideT = 3; if (bowl) bowl.water = Math.max(0, bowl.water - 0.15); }
+    return;
+  }
+  if (cat.state === 'meow') {
+    cat.activity = 'meowing at you: the bowl is empty';
+    if (cat.stateT > 2.2) { cat.stateT = 0; meow(); }
+    const bowls = props.find((pr) => pr.type === 'bowls');
+    if (!cat.hungry || !bowls || bowls.food > 0.1) { cat.state = 'sit'; cat.decideT = 0.3; }
+    return;
+  }
+  if (cat.state === 'bat') {
+    const yarn = props.find((pr) => pr.type === 'yarn');
+    cat.activity = 'playing with the yarn';
+    if (!yarn) { cat.state = 'sit'; return; }
+    const ball = yarn.ball.position;
+    turnToward(ball, dt);
+    if (cat.stateT > 0.35 && !cat.swiped) {
+      cat.swiped = true;
+      if (Math.hypot(ball.x - cat.pos.x, ball.z - cat.pos.z) < 0.3) {
+        const dir = new V3(ball.x - cat.pos.x, 0, ball.z - cat.pos.z).normalize();
+        dir.applyAxisAngle(_up, (Math.random() - 0.5) * 1.2);
+        yarn.vel.addScaledVector(dir, 0.7 + Math.random() * 0.6);
+      }
+    }
+    if (cat.stateT > 1.1) {
+      cat.swiped = false;
+      cat.bats -= 1;
+      if (cat.bats > 0) goTo({ p: floorNear(ball, 0.16) || ball.clone().setY(0), kind: 'play', face: ball });
+      else { cat.state = 'sit'; cat.stateT = 0; cat.playBoredUntil = time + 40; }
+    }
+    return;
+  }
+  if (cat.state === 'watch') {
+    const perched = birds.filter((b) => b.state === 'perched');
+    cat.activity = perched.length ? 'watching the birds, chattering' : 'waiting for the birds';
+    if (perched.length) turnToward(perched[0].group.getWorldPosition(_v2), dt, 4);
+    if (!perched.length && cat.stateT > 6) { cat.state = 'sit'; cat.stateT = 0; }
+    cat.decideT -= dt;
+    if (cat.decideT <= 0) { cat.decideT = 2.5; if (!perched.length) decide(); }
+    return;
+  }
+  if (cat.state === 'sit' && cat.stateT > 2.2 && !cat.hungry) { cat.state = 'sleep'; cat.stateT = 0; }
   cat.decideT -= dt;
-  if (cat.decideT <= 0) { cat.decideT = 2.5; decide(); }
+  if (cat.decideT <= 0) {
+    cat.decideT = 2.5;
+    if (cat.inBox && cat.stateT > 45) cat.boxBoredUntil = time + 60;
+    decide();
+  }
   const lit = sunlit(new V3(cat.pos.x, cat.pos.y + 0.12, cat.pos.z));
-  const where = onSeat(cat.pos) ? 'on the window seat' : Math.hypot(cat.pos.x - bedItem.x, cat.pos.z - bedItem.z) < 0.2 ? 'in its bed' : 'on the floor';
+  const kind = cat.spot?.kind;
+  const where = cat.inBox ? 'in the box, obviously' : kind === 'perch' ? 'up on the cat tree' : onSeat(cat.pos) ? 'on the window seat' : Math.hypot(cat.pos.x - bedItem.x, cat.pos.z - bedItem.z) < 0.2 ? 'in its bed' : 'on the floor';
   cat.activity = cat.state === 'sleep'
-    ? (lit ? `asleep in the sun, ${where}` : lantern.on && Math.hypot(cat.pos.x - lanternLight.position.x, cat.pos.z - lanternLight.position.z) < 1.2 ? `asleep under the lantern` : `asleep ${where}`)
+    ? (lit ? `asleep in the sun, ${where}` : lantern.on && Math.hypot(cat.pos.x - lanternLight.position.x, cat.pos.z - lanternLight.position.z) < 1.2 ? 'asleep under the lantern' : `asleep ${where}`)
     : `sitting ${where}, thinking`;
 }
+const _v2 = new V3();
 
 /* leaves the cat knocks off the monstera */
 const fallen = [];
@@ -1912,6 +2077,725 @@ function renderFrame() {
 }
 
 /* ===================================================================
+   PROPS: things you add from the shelf, each with something to do.
+   Models come from models/props/*.glb (models/props_build.py); until a
+   model loads, or if it is missing, a simple stand-in with the same named
+   parts takes its place, so every behaviour works either way.
+   =================================================================== */
+const gltf = new GLTFLoader();
+const glbCache = new Map();
+function loadGLB(path) {
+  if (!glbCache.has(path)) glbCache.set(path, new Promise((res) => gltf.load(path, (g) => res(g.scene), undefined, () => res(null))));
+  return glbCache.get(path).then((scene) => (scene ? scene.clone(true) : null));
+}
+function toonify(root) {
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    const src = o.material, vc = !!o.geometry.attributes.color;
+    o.material = toon(vc || src.map ? '#ffffff' : src.color, { vertexColors: vc, map: src.map || null, side: THREE.DoubleSide });
+    o.castShadow = true; o.receiveShadow = true;
+  });
+  return root;
+}
+const findPart = (root, name) => root.getObjectByName(name) || root.getObjectByName(name.replace(/[.]/g, ''));
+/* stand-ins: [name, geometry, colour, position] */
+const box3 = (w, h, d) => new THREE.BoxGeometry(w, h, d).translate(0, h / 2, 0);
+const cyl = (r, h, r2 = r) => new THREE.CylinderGeometry(r2, r, h, 20).translate(0, h / 2, 0);
+const STANDINS = {
+  radio: [['radio', box3(0.3, 0.2, 0.13), '#8a5a3a'], ['dial', box3(0.14, 0.03, 0.01), '#f3d9a4', [0, 0.04, 0.066]], ['knobL', cyl(0.015, 0.012).rotateX(Math.PI / 2), '#5a3a26', [-0.1, 0.055, 0.066]], ['knobR', cyl(0.015, 0.012).rotateX(Math.PI / 2), '#5a3a26', [0.1, 0.055, 0.066]]],
+  box: [['box', box3(0.44, 0.2, 0.34), '#c9955e']],
+  bowls: [['mat', cyl(0.2, 0.01), '#d8bb8a'], ['foodBowl', cyl(0.07, 0.05, 0.055), '#f1e8dc', [0.1, 0.01, 0]], ['food', cyl(0.05, 0.03), '#8a5230', [0.1, 0.02, 0]], ['waterBowl', cyl(0.07, 0.05, 0.055), '#f1e8dc', [-0.1, 0.01, 0]], ['water', cyl(0.052, 0.03), '#9cc7e6', [-0.1, 0.02, 0]]],
+  catTree: [['tree', cyl(0.23, 0.04), '#c9a27a'], ['post', cyl(0.05, 0.9), '#e3cfa3'], ['perch0', cyl(0.15, 0.03), '#f1e6d6', [0.12, 0.45, 0.05]], ['perch1', cyl(0.18, 0.05), '#f1e6d6', [0, 0.9, 0]], ['toy', cyl(0.02, 0.02), '#f2d6c0', [0.14, 0.8, 0.1]]],
+  floorLamp: [['lamp', cyl(0.004, 1.3), '#c9a15a'], ['base', cyl(0.13, 0.02), '#c9a15a'], ['shade', cyl(0.17, 0.22, 0.15), '#f2e4c8', [0, 1.25, 0]], ['bulb', cyl(0.03, 0.05), '#fff3d6', [0, 1.3, 0]]],
+  candle: [['jar', cyl(0.04, 0.09), '#c98a44'], ['wax', cyl(0.036, 0.07), '#f6eddc'], ['wick', cyl(0.002, 0.012), '#3a2a22', [0, 0.07, 0]]],
+  yarn: [['ball', new THREE.SphereGeometry(0.05, 20, 14), '#ec9fb0', [0, 0.05, 0]]],
+  wateringCan: [['can', cyl(0.07, 0.15), '#7fa37a'], ['spoutTip', new THREE.SphereGeometry(0.012, 8, 6), '#7fa37a', [0.17, 0.16, 0]]],
+  birdFeeder: [['feeder', box3(0.13, 0.16, 0.12).translate(0, -0.2, 0), '#b98a5a'], ['perchL', new THREE.SphereGeometry(0.004), '#b98a5a', [-0.04, -0.2, 0.08]], ['perchR', new THREE.SphereGeometry(0.004), '#b98a5a', [0.04, -0.2, 0.08]]],
+  bird: [['body', new THREE.SphereGeometry(0.03, 14, 10).translate(0, 0.03, 0), '#9a6a48'], ['head', new THREE.SphereGeometry(0.02, 12, 8), '#9a6a48', [0, 0.065, 0.025]], ['wingL', box3(0.005, 0.025, 0.04), '#7a5238', [0.028, 0.03, 0]], ['wingR', box3(0.005, 0.025, 0.04), '#7a5238', [-0.028, 0.03, 0]]],
+  windChime: [['top', cyl(0.05, 0.01).translate(0, -0.12, 0), '#b98a5a'], ...[0, 1, 2, 3, 4].map((i) => [`tube${i}`, cyl(0.006, 0.08 + i * 0.02).translate(0, -(0.08 + i * 0.02), 0), ['#c6d8f0', '#f0c8d8', '#d8f0c8', '#f0e0b8', '#d8c8f0'][i], [Math.cos(i * 1.256) * 0.035, -0.13, Math.sin(i * 1.256) * 0.035]]), ['clapper', cyl(0.018, 0.006).translate(0, -0.2, 0), '#b98a5a', [0, -0.13, 0]]],
+  easel: [['easel', box3(0.05, 1.2, 0.05), '#b98a5a'], ['canvas', new THREE.PlaneGeometry(0.5, 0.6).translate(0, 0.9, 0.04), '#fbf7ef']],
+};
+function standIn(type) {
+  const g = new THREE.Group();
+  for (const [name, geo, color, pos] of STANDINS[type] || []) {
+    const m = new THREE.Mesh(geo, toon(color, { side: THREE.DoubleSide }));
+    m.name = name; m.castShadow = true; m.receiveShadow = true;
+    if (pos) m.position.set(...pos);
+    g.add(m);
+  }
+  return g;
+}
+async function modelFor(type, path) {
+  const scene = await loadGLB(path);
+  return scene ? toonify(scene) : standIn(type);
+}
+
+/* what the shelf offers; place: floor (furniture rules), small (floor or a
+   table top), slot (a fixed spot by the window) */
+const PROP_TYPES = {
+  radio:       { label: 'Radio', note: 'Click it for lo-fi', place: 'small', size: [0.3, 0.14] },
+  box:         { label: 'Cardboard box', note: 'The cat cannot resist', place: 'floor', size: [0.44, 0.34] },
+  bowls:       { label: 'Food & water', note: 'Dinner at 8:00 and 19:00', place: 'floor', size: [0.4, 0.22] },
+  catTree:     { label: 'Cat tree', note: 'Climbs it, sleeps on top at night', place: 'floor', size: [0.46, 0.46], blocks: true },
+  floorLamp:   { label: 'Floor lamp', note: 'A warm spot after dark', place: 'floor', size: [0.3, 0.3], blocks: true },
+  candle:      { label: 'Candle', note: 'Mind the open window', place: 'small', size: [0.09, 0.09] },
+  yarn:        { label: 'Yarn ball', note: 'Rolls, unwinds, gets batted', place: 'small', size: [0.1, 0.1] },
+  wateringCan: { label: 'Watering can', note: 'Plants now need water and sun', place: 'small', size: [0.32, 0.12] },
+  birdFeeder:  { label: 'Bird feeder', note: 'Hangs outside; birds visit by day', place: 'slot' },
+  windChime:   { label: 'Wind chime', note: 'Sings in the breeze', place: 'slot' },
+  easel:       { label: 'Easel', note: 'The room paints itself', place: 'floor', size: [0.6, 0.5], blocks: true },
+};
+const SLOTS = {
+  birdFeeder: () => ({ pos: new V3(-HW - 0.36, 1.92, winCenter.z + 0.3), wall: 'W' }),
+  windChime: () => ({ pos: new V3(-HW + 0.22, WIN.y1 + 0.1, WIN.u0 + 0.35), wall: 'W' }),
+};
+const props = [];
+const birds = [];
+
+function registerNew(it) {
+  it.group.traverse((o) => { if (o.isMesh && !o.userData.item) { o.userData.item = it; pickables.push(o); } });
+}
+function unregister(it) {
+  for (let i = pickables.length - 1; i >= 0; i--) if (pickables[i].userData.item === it) pickables.splice(i, 1);
+}
+/* a free spot on the floor for something w×d, nearest to the middle */
+function freeSpot(w, d) {
+  // along a wall, clear of the window seat, and away from other things
+  const probe = { w, d, rot: 0, blocks: true, kind: 'floor' };
+  let best = null, bd = Infinity;
+  for (let x = -HW + w / 2 + 0.05; x <= HW - w / 2 - 0.05; x += 0.1) for (let z = -HW + d / 2 + 0.05; z <= HW - d / 2 - 0.05; z += 0.1) {
+    if (overlaps(probe, x, z, 0)) continue;
+    if (Math.hypot(x - cat.pos.x, z - cat.pos.z) < 0.3 || x - w / 2 < SEAT.x1 + 0.35) continue;
+    const wallGap = Math.min(x - w / 2 + HW, HW - x - w / 2, z - d / 2 + HW, HW - z - d / 2);
+    let crowd = 0;
+    for (const o of items) if (o.kind === 'floor' || o.kind === 'small') crowd += Math.max(0, 0.9 - Math.hypot(o.x - x, o.z - z));
+    const score = wallGap * 3 + crowd * 1.5 + Math.hypot(x - 0.4, z - 0.4) * 0.15;
+    if (score < bd) { bd = score; best = [x, z]; }
+  }
+  return best;
+}
+/* table tops a small prop may stand on */
+const SURFACES = () => [
+  { item: deskItem, y: 0.755, w: 1.0, d: 0.5 },
+  { item: bookcaseItem, y: 0.8, w: 0.86, d: 0.28 },
+];
+function surfaceAt(point) {
+  for (const s of SURFACES()) {
+    const local = s.item.group.worldToLocal(point.clone());
+    if (Math.abs(local.x) < s.w / 2 && Math.abs(local.z) < s.d / 2) return s;
+  }
+  return null;
+}
+
+function addProp(type, at = {}) {
+  const T = PROP_TYPES[type];
+  const group = new THREE.Group();
+  const pr = { type, group, on: false, food: 1, water: 1 };
+  let it;
+  if (T.place === 'slot') {
+    const slot = SLOTS[type]();
+    group.position.copy(slot.pos);
+    scene.add(group);
+    it = addItem({ name: T.label, kind: 'fixed', group, w: 0, d: 0, blocks: false, info: () => propInfo(pr), click: () => propClick(pr) });
+    pr.wall = slot.wall;
+  } else if (T.place === 'floor' || (T.place === 'small' && !at.host)) {
+    const [w, d] = T.size;
+    let x = at.x, z = at.z;
+    if (x === undefined) { const spot = freeSpot(w, d); if (!spot) { toast('There is no free spot on the floor for that'); return null; } [x, z] = spot; }
+    group.position.set(x, 0, z);
+    it = addItem({ name: T.label, kind: T.place === 'floor' ? 'floor' : 'small', group, w, d, rot: at.rot || 0, blocks: !!T.blocks, info: () => propInfo(pr), click: () => propClick(pr) });
+    it.x = x; it.z = z;
+    placeItem(it);
+  } else {
+    const host = items.find((o) => o.name === at.host) || bookcaseItem;
+    host.group.add(group);
+    group.position.set(at.x ?? 0, at.y ?? (host === deskItem ? 0.755 : 0.8), at.z ?? 0);
+    it = addItem({ name: T.label, kind: 'small', group, w: T.size[0], d: T.size[1], blocks: false, info: () => propInfo(pr), click: () => propClick(pr) });
+    host.group.add(group); // addItem put it in the scene; it stands on the host
+    it.host = host;
+  }
+  pr.item = it;
+  it.prop = pr;
+  props.push(pr);
+  modelFor(type, `models/props/${type.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase())}.glb`).then((model) => {
+    if (!props.includes(pr)) return;
+    pr.model = model;
+    group.add(model);
+    if (pr.wall) clipTo(group, pr.wall);
+    registerNew(it);
+    PROP_SETUP[type]?.(pr, model);
+    rebuildGrid();
+  });
+  itemsMoved();
+  renderShelf();
+  return pr;
+}
+function removeProp(pr) {
+  PROP_TEARDOWN[pr.type]?.(pr);
+  pr.group.removeFromParent();
+  unregister(pr.item);
+  items.splice(items.indexOf(pr.item), 1);
+  props.splice(props.indexOf(pr), 1);
+  if (cat.spot?.bowl === pr) cat.spot = null;
+  itemsMoved();
+  renderShelf();
+}
+function propInfo(pr) {
+  const T = PROP_TYPES[pr.type];
+  const extra = PROP_INFO[pr.type]?.(pr);
+  return `${T.label} · <em>${extra || T.note}</em>`;
+}
+function propClick(pr) { PROP_CLICK[pr.type]?.(pr); }
+
+/* ---------- per-prop behaviour ---------- */
+const PROP_SETUP = {}, PROP_TEARDOWN = {}, PROP_INFO = {}, PROP_CLICK = {}, PROP_STEP = {};
+const glow = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(hex).multiplyScalar(k) });
+
+// radio: it is the music
+PROP_SETUP.radio = (pr, m) => {
+  pr.dial = findPart(m, 'dial'); pr.knobs = ['knobL', 'knobR'].map((n) => findPart(m, n)).filter(Boolean);
+  if (pr.dial) pr.dialOff = pr.dial.material;
+};
+PROP_INFO.radio = () => (radio.on ? `playing ${TRACKS[radio.i]?.title || ''} · click to switch off` : 'click for lo-fi');
+PROP_CLICK.radio = (pr) => { setRadio(!radio.on); pr.knobTurn = (pr.knobTurn || 0) + 1; rememberRadio(); };
+PROP_STEP.radio = (pr, dt) => {
+  if (pr.dial) pr.dial.material = radio.on ? (pr.dialOn ||= glow('#ffcf8a', 2.2)) : pr.dialOff;
+  pr.knobs?.forEach((k, i) => { k.rotation.z = lerp(k.rotation.z, (pr.knobTurn || 0) * (i ? 1.1 : -0.7), damp(dt, 6)); });
+  if (radio.panner) {
+    const p = pr.group.getWorldPosition(_v2).project(camera);
+    radio.panner.pan.value = clamp(p.x * 0.8, -0.8, 0.8);
+  }
+};
+PROP_TEARDOWN.radio = () => { if (radio.on) setRadio(false); };
+
+// bowls: kibble and water go down, a click refills both
+PROP_SETUP.bowls = (pr, m) => { pr.foodMesh = findPart(m, 'food'); pr.waterMesh = findPart(m, 'water'); };
+PROP_INFO.bowls = (pr) => (pr.food < 0.1 ? 'empty · click to fill' : `${Math.round(pr.food * 100)}% kibble · dinner at 8:00 and 19:00`);
+PROP_CLICK.bowls = (pr) => { pr.food = 1; pr.water = 1; toast('Bowls filled'); cat.decideT = Math.min(cat.decideT, 0.5); };
+PROP_STEP.bowls = (pr) => {
+  if (pr.foodMesh) pr.foodMesh.scale.y = Math.max(0.02, pr.food);
+  if (pr.waterMesh) pr.waterMesh.scale.y = Math.max(0.02, pr.water);
+};
+
+// cat tree: two perches and a toy that swings
+PROP_SETUP.catTree = (pr, m) => { pr.perches = ['perch0', 'perch1'].map((n) => findPart(m, n)); pr.toy = findPart(m, 'toy'); if (pr.perches.some((o) => !o)) pr.perches = null; };
+PROP_STEP.catTree = (pr, dt, t) => { if (pr.toy) { pr.toy.rotation.x = Math.sin(t * 1.7) * 0.12 * (1 + wind.v); pr.toy.rotation.z = Math.sin(t * 1.1) * 0.08; } };
+PROP_INFO.catTree = () => (cat.spot?.kind === 'perch' && cat.pos.y > 0.3 ? 'the cat is up there' : 'the cat climbs it, and sleeps on top at night');
+
+// floor lamp: a warm pool and a warm spot
+PROP_SETUP.floorLamp = (pr, m) => {
+  pr.bulb = findPart(m, 'bulb'); pr.shade = findPart(m, 'shade');
+  pr.light = new THREE.PointLight('#ffb870', 0, 3.2, 1.6);
+  (pr.bulb || m).add(pr.light);
+  pr.pool = noInk(new THREE.Mesh(new THREE.CircleGeometry(0.9, 40), lanternPool.material.clone()));
+  pr.pool.rotation.x = -Math.PI / 2; pr.pool.position.y = 0.006; pr.pool.renderOrder = 4;
+  pr.group.add(pr.pool);
+  pr.on = sun.el < 3 * DEG;
+};
+PROP_INFO.floorLamp = (pr) => `${pr.on ? 'on' : 'off'} · click`;
+PROP_CLICK.floorLamp = (pr) => { pr.on = !pr.on; };
+PROP_STEP.floorLamp = (pr, dt) => {
+  if (!pr.light) return;
+  pr.light.intensity += ((pr.on ? 3.2 : 0) - pr.light.intensity) * damp(dt, 5);
+  pr.pool.material.opacity = clamp(pr.light.intensity / 3.2, 0, 1) * lerp(0.3, 0.12, sun.day);
+  if (pr.bulb) pr.bulb.material = pr.on ? (pr.bulbOn ||= glow('#ffe2b0', 2.5)) : (pr.bulbOff ||= pr.bulb.material);
+  if (pr.shade) { pr.shadeOff ||= pr.shade.material; pr.shade.material = pr.on ? (pr.shadeOn ||= glow('#ffd9a8', 1.25)) : pr.shadeOff; }
+};
+
+// candle: flame, flicker, and the breeze from an open window can blow it out
+const flameTex = canvasTex(32, 64, (g) => {
+  const gr = g.createRadialGradient(16, 40, 1, 16, 36, 22);
+  gr.addColorStop(0, 'rgba(255,255,230,1)'); gr.addColorStop(0.35, 'rgba(255,200,90,0.95)'); gr.addColorStop(1, 'rgba(255,120,40,0)');
+  g.fillStyle = gr; g.beginPath(); g.ellipse(16, 38, 9, 24, 0, 0, Math.PI * 2); g.fill();
+});
+PROP_SETUP.candle = (pr, m) => {
+  const wick = findPart(m, 'wick') || m;
+  wick.updateMatrixWorld(true);
+  pr.flame = noInk(new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, color: new THREE.Color(1.5, 1.25, 0.9), transparent: true, depthWrite: false })));
+  pr.flame.scale.set(0.018, 0.036, 1);
+  pr.flame.renderOrder = 7;
+  pr.flameAt = pr.group.worldToLocal(wick.getWorldPosition(new V3())).add(new V3(0, 0.016, 0));
+  pr.flame.position.copy(pr.flameAt);
+  pr.light = new THREE.PointLight('#ffb060', 0, 1.6, 1.8);
+  pr.light.position.copy(pr.flameAt);
+  pr.smoke = noInk(new THREE.Sprite(new THREE.SpriteMaterial({ map: steamTex, color: '#d8d0cc', transparent: true, depthWrite: false, opacity: 0 })));
+  pr.group.add(pr.flame, pr.light, pr.smoke);
+  pr.on = true; pr.smokeT = 1;
+};
+PROP_INFO.candle = (pr) => (pr.on ? 'lit · click to blow it out' : 'click to light');
+PROP_CLICK.candle = (pr) => { if (pr.on) blowOut(pr); else pr.on = true; };
+function blowOut(pr) { pr.on = false; pr.smokeT = 0; }
+PROP_STEP.candle = (pr, dt, t) => {
+  if (!pr.flame) return;
+  const f = 1 + Math.sin(t * 17) * 0.06 + Math.sin(t * 29) * 0.05 + (windowState.open ? wind.v * Math.sin(t * 9) * 0.15 : 0);
+  pr.flame.visible = pr.on;
+  pr.flame.scale.set(0.018 * f, 0.036 * f, 1);
+  pr.flame.position.set(pr.flameAt.x + wind.v * 0.004 * Math.sin(t * 7), pr.flameAt.y, pr.flameAt.z);
+  pr.light.intensity = pr.on ? 0.55 * f : 0;
+  // a gust near an open window
+  if (pr.on && windowState.open && wind.gust > 0.75) {
+    const at = pr.group.getWorldPosition(_v2);
+    if (Math.hypot(at.x - winCenter.x, at.z - winCenter.z) < 1.9) { blowOut(pr); toast('A gust blew the candle out'); }
+  }
+  pr.smokeT = Math.min(1, pr.smokeT + dt / 2.5);
+  pr.smoke.position.set(pr.flameAt.x, pr.flameAt.y + pr.smokeT * 0.2, pr.flameAt.z);
+  pr.smoke.scale.setScalar(0.03 + pr.smokeT * 0.08);
+  pr.smoke.material.opacity = pr.smokeT < 1 ? Math.sin(Math.PI * pr.smokeT) * 0.45 : 0;
+};
+
+// yarn: rolls, bounces off furniture, leaves a thread; click to wind it back
+const threadMat = toon('#ec9fb0');
+PROP_SETUP.yarn = (pr, m) => {
+  pr.ballMesh = findPart(m, 'ball') || m;
+  // the ball rolls freely in the room, apart from the item that placed it
+  const world = pr.group.getWorldPosition(new V3());
+  pr.ball = new THREE.Group();
+  pr.ball.position.set(world.x, 0.05, world.z);
+  scene.add(pr.ball);
+  pr.ball.add(pr.ballMesh);
+  pr.ballMesh.position.set(0, 0, 0);
+  pr.item.group = pr.ball; // dragging picks the ball up where it is
+  pr.item.kind = 'small';
+  pr.group.removeFromParent();
+  pr.vel = new V3();
+  pr.trail = [new V3(world.x, 0.006, world.z)];
+  pr.thread = new THREE.Mesh(new THREE.BufferGeometry(), threadMat);
+  pr.thread.castShadow = false;
+  scene.add(pr.thread);
+  registerNew(pr.item);
+};
+PROP_TEARDOWN.yarn = (pr) => { pr.ball?.removeFromParent(); pr.thread?.removeFromParent(); };
+PROP_INFO.yarn = (pr) => (pr.trail?.length > 2 ? 'unwound a bit · click to wind it back' : 'the cat likes to bat it around');
+PROP_CLICK.yarn = (pr) => { if (pr.trail?.length > 2) pr.rewind = true; };
+PROP_STEP.yarn = (pr, dt) => {
+  if (!pr.ball) return;
+  const b = pr.ball.position;
+  if (pr.rewind) {
+    const to = pr.trail[pr.trail.length - 1];
+    const d = new V3(to.x - b.x, 0, to.z - b.z), dist = d.length();
+    if (dist < 0.02) { if (pr.trail.length > 1) pr.trail.pop(); else pr.rewind = false; }
+    else b.addScaledVector(d.normalize(), Math.min(dist, dt * 0.9));
+    pr.vel.set(0, 0, 0);
+  } else if (pr.vel.lengthSq() > 1e-6) {
+    const nx = b.x + pr.vel.x * dt, nz = b.z + pr.vel.z * dt;
+    const hit = (x, z) => Math.abs(x) > HW - 0.05 || Math.abs(z) > HW - 0.05 || items.some((o) => o.blocks && (o.kind === 'floor' || o === seatItem) && (() => { const f = footprint(o); return x > f.x0 - 0.05 && x < f.x1 + 0.05 && z > f.z0 - 0.05 && z < f.z1 + 0.05; })());
+    if (hit(nx, b.z)) pr.vel.x *= -0.6; else b.x = nx;
+    if (hit(b.x, nz)) pr.vel.z *= -0.6; else b.z = nz;
+    pr.vel.multiplyScalar(Math.exp(-dt * 1.3));
+    // rolling
+    const axis = new V3(pr.vel.z, 0, -pr.vel.x);
+    if (axis.lengthSq() > 1e-8) pr.ballMesh.rotateOnWorldAxis(axis.normalize(), (pr.vel.length() * dt) / 0.05);
+    const last = pr.trail[pr.trail.length - 1];
+    if (Math.hypot(b.x - last.x, b.z - last.z) > 0.04 && pr.trail.length < 400) pr.trail.push(new V3(b.x, 0.006, b.z));
+  }
+  b.y = 0.05;
+  const pts = [...pr.trail, new V3(b.x, 0.02, b.z)];
+  if (pts.length >= 2 && (pts.length !== pr.threadLen || pr.rewind)) {
+    pr.threadLen = pts.length;
+    const old = pr.thread.geometry;
+    pr.thread.geometry = pts.length > 2 ? new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 3, 0.004, 5) : new THREE.BufferGeometry();
+    old.dispose();
+  }
+};
+
+// watering can: click it, then click a plant
+const water = { mode: false, can: null, anim: null };
+const PLANTS = () => [
+  { name: 'Monstera', state: monstera, item: monsteraItem, top: 0.9 },
+  { name: 'Lemon tree', state: lemon, item: lemonItem, top: 1.0 },
+  ...pothos.map((p, i) => ({ name: 'Pothos', state: p, at: new V3(p.x, p.y + 0.2, p.z), top: 0 })),
+];
+PROP_SETUP.wateringCan = (pr, m) => { pr.spout = findPart(m, 'spoutTip'); for (const P of PLANTS()) P.state.water ??= 0.8; };
+PROP_TEARDOWN.wateringCan = () => { water.mode = false; for (const P of PLANTS()) P.state.water = undefined; };
+PROP_INFO.wateringCan = () => (water.mode ? 'now click a plant' : 'click, then click a plant');
+PROP_CLICK.wateringCan = (pr) => { water.mode = !water.mode; water.can = pr; if (water.mode) toast('Click a plant to water it'); };
+function waterPlant(P) {
+  const pr = water.can;
+  water.mode = false;
+  if (!pr || water.anim) return;
+  const target = P.at ? P.at.clone() : P.item.group.getWorldPosition(new V3()).add(new V3(0.12, P.top * 0.55, 0.12));
+  water.anim = { pr, P, t: 0, from: pr.group.getWorldPosition(new V3()), fromParent: pr.group.parent, fromLocal: pr.group.position.clone(), fromRot: pr.group.rotation.clone(), to: target };
+  scene.attach(pr.group);
+  P.state.water = Math.min(1.6, (P.state.water ?? 0.8) + 0.55);
+  if (P.state.water > 1.25) setTimeout(() => toast(`The ${P.name.toLowerCase()} has had too much`), 1600);
+}
+const drops = noInk(new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(60 * 3), 3)), new THREE.PointsMaterial({ color: '#bfe0ff', size: 3, sizeAttenuation: false, transparent: true, opacity: 0.9 })));
+drops.frustumCulled = false; drops.visible = false;
+scene.add(drops);
+function stepWatering(dt) {
+  const a = water.anim;
+  if (!a) { drops.visible = false; return; }
+  a.t += dt;
+  const g = a.pr.group;
+  const lift = smooth(0, 0.6, a.t) * (1 - smooth(2.4, 3, a.t));
+  g.position.lerpVectors(a.from, a.to, lift);
+  g.rotation.set(0, Math.atan2(a.to.x - a.from.x, a.to.z - a.from.z) - Math.PI / 2, -0.7 * smooth(0.6, 0.9, a.t) * (1 - smooth(2.1, 2.4, a.t)));
+  const pouring = a.t > 0.8 && a.t < 2.2;
+  drops.visible = pouring;
+  if (pouring && a.pr.spout) {
+    const tip = a.pr.spout.getWorldPosition(_v2);
+    const pos = drops.geometry.attributes.position;
+    for (let i = 0; i < 60; i++) {
+      const ph = ((a.t * 1.6 + i / 60) % 1);
+      pos.setXYZ(i, tip.x + Math.sin(i * 7.1) * 0.012, tip.y - ph * 0.32, tip.z + Math.cos(i * 3.7) * 0.012);
+    }
+    pos.needsUpdate = true;
+  }
+  if (a.t > 3) {
+    a.fromParent.attach(g);
+    g.position.copy(a.fromLocal); g.rotation.copy(a.fromRot);
+    water.anim = null;
+  }
+}
+const plantPuddle = noInk(new THREE.Mesh(new THREE.CircleGeometry(0.3, 32), new THREE.MeshBasicMaterial({ map: steamTex, color: '#7a9fd6', transparent: true, opacity: 0, depthWrite: false })));
+plantPuddle.rotation.x = -Math.PI / 2; plantPuddle.position.y = 0.007;
+scene.add(plantPuddle);
+/* plants grow only with sun and water while a watering can is in the room */
+function thriving(state, dt) {
+  if (state.water === undefined) return true;
+  state.water = Math.max(0, state.water - dt / 420);
+  return state.water > 0.15 && state.water < 1.25;
+}
+function waterNote(state) {
+  if (state.water === undefined) return '';
+  return state.water < 0.15 ? ' · thirsty' : state.water > 1.25 ? ' · too wet' : '';
+}
+function stepPlantPuddle() {
+  const soggy = PLANTS().find((P) => P.item && (P.state.water ?? 0) > 1.25);
+  plantPuddle.material.opacity = soggy ? 0.6 : 0;
+  if (soggy) plantPuddle.position.set(soggy.item.x + 0.12, 0.007, soggy.item.z + 0.12);
+}
+
+// bird feeder: sparrows drop by in daylight
+PROP_SETUP.birdFeeder = (pr, m) => {
+  pr.perches = ['perchL', 'perchR'].map((n) => findPart(m, n)).filter(Boolean);
+  pr.nextVisit = time + 6;
+  for (let i = 0; i < 2; i++) {
+    const b = { group: new THREE.Group(), state: 'away', t: 0, i, feeder: pr };
+    b.group.visible = false;
+    scene.add(b.group);
+    modelFor('bird', 'models/props/bird.glb').then((model) => {
+      b.group.add(model); b.head = findPart(model, 'head'); b.wings = ['wingL', 'wingR'].map((n) => findPart(model, n)).filter(Boolean);
+      clipTo(b.group, 'W');
+    });
+    birds.push(b);
+  }
+};
+PROP_TEARDOWN.birdFeeder = () => { for (const b of birds) b.group.removeFromParent(); birds.length = 0; };
+PROP_INFO.birdFeeder = () => (birds.some((b) => b.state === 'perched') ? 'sparrows are visiting' : sun.day > 0.5 && weather.k < 0.5 ? 'birds come by in daylight' : 'the birds come back in daylight');
+function stepBirds(dt, t) {
+  const pr = props.find((p) => p.type === 'birdFeeder');
+  if (!pr || !pr.perches) return;
+  const fair = sun.day > 0.5 && weather.k < 0.5;
+  if (fair && time > pr.nextVisit && birds.every((b) => b.state === 'away')) {
+    pr.nextVisit = time + 25 + Math.random() * 30;
+    birds.forEach((b, i) => { if (i === 0 || Math.random() < 0.6) { b.state = 'arriving'; b.t = -i * 0.8; b.stay = 9 + Math.random() * 8; } });
+  }
+  for (const b of birds) {
+    if (b.state === 'away') { b.group.visible = false; continue; }
+    const perch = pr.perches[b.i % pr.perches.length].getWorldPosition(new V3());
+    const outside = perch.clone().add(new V3(-1.4, 0.9, b.i ? 1.2 : -1.2));
+    b.t += dt;
+    b.group.visible = true;
+    let flying = false;
+    if (b.state === 'arriving') {
+      const k = clamp(b.t / 1.6, 0, 1);
+      b.group.position.lerpVectors(outside, perch, 1 - (1 - k) * (1 - k));
+      b.group.position.y += Math.sin(Math.PI * k) * 0.15;
+      flying = true;
+      if (k >= 1) { b.state = 'perched'; b.t = 0; cat.decideT = Math.min(cat.decideT, 0.5); cat.replan = true; chirp(); }
+    } else if (b.state === 'perched') {
+      b.group.position.copy(perch);
+      if (b.head) { b.head.rotation.x = Math.max(0, Math.sin(t * 5 + b.i * 2)) * 0.9; b.head.rotation.y = Math.sin(t * 0.7 + b.i) * 0.5; }
+      if (Math.random() < dt * 0.25) chirp();
+      if (b.t > b.stay || !fair || !props.includes(pr)) { b.state = 'leaving'; b.t = 0; }
+    } else if (b.state === 'leaving') {
+      const k = clamp(b.t / 1.4, 0, 1);
+      b.group.position.lerpVectors(perch, outside, k * k);
+      flying = true;
+      if (k >= 1) b.state = 'away';
+    }
+    b.group.rotation.y = Math.PI / 2 + (b.i ? 0.3 : -0.3);
+    b.wings?.forEach((w, j) => { w.rotation.z = flying ? Math.sin(t * 40) * 0.9 * (j ? 1 : -1) : 0; });
+  }
+}
+
+// wind chime: tubes swing with the breeze and ring
+PROP_SETUP.windChime = (pr, m) => { pr.tubes = [0, 1, 2, 3, 4].map((i) => findPart(m, `tube${i}`)).filter(Boolean); pr.clapper = findPart(m, 'clapper'); pr.nextRing = 0; };
+PROP_INFO.windChime = () => (windowState.open ? 'singing in the breeze' : 'open the window to hear it');
+PROP_CLICK.windChime = () => ringChime(0.9);
+PROP_STEP.windChime = (pr, dt, t) => {
+  const w = windowState.k * (0.25 + wind.v);
+  pr.tubes?.forEach((tb, i) => { tb.rotation.x = Math.sin(t * (2.1 + i * 0.37) + i) * 0.12 * w; tb.rotation.z = Math.sin(t * (1.7 + i * 0.29) + i * 2) * 0.1 * w; });
+  if (pr.clapper) { pr.clapper.rotation.x = Math.sin(t * 2.6) * 0.3 * w; pr.clapper.rotation.z = Math.sin(t * 2.2 + 1) * 0.3 * w; }
+  if (windowState.open && wind.v > 0.45 && time > pr.nextRing) { ringChime(clamp(wind.v, 0.2, 1)); pr.nextRing = time + 0.4 + Math.random() * 1.6 / (0.5 + wind.v); }
+};
+
+// easel: the room paints itself
+PROP_SETUP.easel = (pr, m) => { pr.canvas = findPart(m, 'canvas'); };
+PROP_INFO.easel = (pr) => (pr.painted ? 'a painting of this room · click to paint again' : 'click: the room paints itself');
+PROP_CLICK.easel = (pr) => { paintRoom(pr); };
+
+/* ---------- the laser pointer, a tool rather than a thing ---------- */
+const laser = { on: false, target: null, visible: false, hunt: 0, boredUntil: 0 };
+const laserDot = noInk(new THREE.Group());
+{
+  const core = new THREE.Mesh(new THREE.CircleGeometry(0.012, 20), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 0.3, 0.3), depthWrite: false }));
+  const halo = new THREE.Mesh(new THREE.CircleGeometry(0.04, 24), new THREE.MeshBasicMaterial({ map: steamTex, color: '#ff4a4a', transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
+  core.rotation.x = halo.rotation.x = -Math.PI / 2;
+  halo.position.y = 0.001;
+  laserDot.add(core, halo);
+  laserDot.renderOrder = 8;
+  laserDot.visible = false;
+  scene.add(noInk(laserDot));
+}
+function stepHunt(dt) {
+  if (!laser.on || !laser.visible || time < laser.boredUntil || cat.held) {
+    if (cat.state === 'hunt' || cat.state === 'stalk') { cat.state = 'sit'; cat.stateT = 0; cat.decideT = 1; }
+    return false;
+  }
+  const dot = laser.target;
+  if (cat.pos.y > 0.05 || cat.inBox) {
+    if (cat.state !== 'walk' && cat.state !== 'hop') goTo({ p: floorNear(cat.pos, 0.35) || dot.clone(), kind: 'rest' });
+    return false;
+  }
+  laser.hunt += dt;
+  if (laser.hunt > 14) { laser.boredUntil = time + 25; laser.hunt = 0; toast('The cat is over the laser. For now.'); return false; }
+  const dist = Math.hypot(dot.x - cat.pos.x, dot.z - cat.pos.z);
+  cat.path = [];
+  cat.spot = null;
+  if (cat.state === 'hop') { stepPounce(dt); return true; }
+  if (dist > 0.3) { cat.state = 'hunt'; walkToward(dot, 0.95, dt); cat.stalkT = 0; }
+  else {
+    cat.state = 'stalk';
+    turnToward(dot, dt, 12);
+    cat.stalkT = (cat.stalkT || 0) + dt;
+    if (cat.stalkT > 0.55) { cat.state = 'hop'; cat.hop = 0; cat.pounce = [cat.pos.clone(), new V3(dot.x, 0, dot.z)]; }
+  }
+  cat.activity = 'hunting the red dot';
+  return true;
+}
+function stepPounce(dt) {
+  const [a, b] = cat.pounce;
+  cat.hop += dt / 0.35;
+  const t = Math.min(1, cat.hop);
+  cat.pos.lerpVectors(a, b, t);
+  cat.pos.y = Math.sin(Math.PI * t) * 0.14;
+  if (t >= 1) { cat.state = 'stalk'; cat.stalkT = -0.4; cat.pos.y = 0; }
+}
+
+/* ---------- small sounds, made on the spot ---------- */
+function sfxCtx() { if (!radio.ctx) buildRadio(); return radio.ctx && radio.ctx.state === 'running' ? radio.ctx : null; }
+function ringChime(strength) {
+  const ctx = sfxCtx(); if (!ctx) return;
+  const notes = [1046.5, 1174.7, 1318.5, 1568, 1760];
+  const f = notes[Math.floor(Math.random() * notes.length)], t0 = ctx.currentTime;
+  for (const [mult, amp, decay] of [[1, 0.5, 2.6], [2.76, 0.18, 1.2], [5.4, 0.08, 0.6]]) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = f * mult; o.type = 'sine';
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(amp * 0.12 * strength, t0 + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t0 + decay);
+    o.connect(g).connect(radio.master); o.start(t0); o.stop(t0 + decay + 0.1);
+  }
+}
+function chirp() {
+  const ctx = sfxCtx(); if (!ctx) return;
+  const t0 = ctx.currentTime;
+  for (let k = 0; k < 2 + Math.floor(Math.random() * 3); k++) {
+    const o = ctx.createOscillator(), g = ctx.createGain(), s = t0 + k * 0.11;
+    o.type = 'sine';
+    o.frequency.setValueAtTime(3200 + Math.random() * 900, s); o.frequency.exponentialRampToValueAtTime(4600 + Math.random() * 800, s + 0.06);
+    g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(0.04, s + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, s + 0.08);
+    o.connect(g).connect(radio.master); o.start(s); o.stop(s + 0.1);
+  }
+}
+const bubble = noInk(new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false, opacity: 0, map: canvasTex(160, 80, (g) => {
+  g.fillStyle = 'rgba(255,250,243,0.95)'; g.strokeStyle = 'rgba(74,50,60,0.8)'; g.lineWidth = 3;
+  g.beginPath(); g.roundRect(6, 6, 148, 50, 22); g.fill(); g.stroke();
+  g.beginPath(); g.moveTo(58, 55); g.lineTo(70, 74); g.lineTo(80, 55); g.fill();
+  g.fillStyle = '#4a323c'; g.font = 'italic 600 30px Fraunces, Georgia, serif'; g.textAlign = 'center'; g.fillText('mrrp?', 80, 42);
+}) })));
+bubble.scale.set(0.24, 0.12, 1);
+bubble.renderOrder = 9;
+scene.add(bubble);
+let bubbleT = 1;
+function meow() {
+  bubbleT = 0;
+  const ctx = sfxCtx(); if (!ctx) return;
+  const t0 = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+  o.type = 'sawtooth'; f.type = 'bandpass'; f.frequency.value = 1300; f.Q.value = 3;
+  o.frequency.setValueAtTime(520, t0); o.frequency.linearRampToValueAtTime(760, t0 + 0.18); o.frequency.exponentialRampToValueAtTime(430, t0 + 0.55);
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.09, t0 + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
+  o.connect(f).connect(g).connect(radio.master); o.start(t0); o.stop(t0 + 0.65);
+}
+function stepBubble(dt) {
+  bubbleT = Math.min(1, bubbleT + dt / 1.6);
+  const head = cat.bones?.head;
+  if (head) { head.getWorldPosition(_v2); bubble.position.set(_v2.x, _v2.y + 0.2 + bubbleT * 0.04, _v2.z); }
+  bubble.material.opacity = bubbleT < 1 ? Math.min(1, Math.sin(Math.PI * bubbleT) * 1.6) : 0;
+}
+
+/* ---------- painting the room: a Kuwahara oil filter over the current frame ---------- */
+const paintRT = new THREE.WebGLRenderTarget(768, 768);
+const kuwahara = new THREE.ShaderMaterial({
+  uniforms: { tSrc: { value: null }, uTexel: { value: new THREE.Vector2(1 / 768, 1 / 768) } },
+  vertexShader: quadVS,
+  fragmentShader: `uniform sampler2D tSrc; uniform vec2 uTexel; varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main(){
+      const int R = 5;
+      vec3 m[4]; vec3 s[4];
+      for (int k = 0; k < 4; k++) { m[k] = vec3(0.0); s[k] = vec3(0.0); }
+      for (int j = -R; j <= R; j++) for (int i = -R; i <= R; i++) {
+        vec3 c = texture2D(tSrc, vUv + vec2(float(i), float(j)) * uTexel).rgb;
+        int q = (i <= 0 ? 0 : 1) + (j <= 0 ? 0 : 2);
+        if (q == 0) { m[0] += c; s[0] += c * c; } else if (q == 1) { m[1] += c; s[1] += c * c; }
+        else if (q == 2) { m[2] += c; s[2] += c * c; } else { m[3] += c; s[3] += c * c; }
+      }
+      float n = float((R + 1) * (R + 1)), best = 1e9; vec3 col = vec3(0.0);
+      for (int k = 0; k < 4; k++) {
+        vec3 mu = m[k] / n; vec3 v = abs(s[k] / n - mu * mu); float sig = v.r + v.g + v.b;
+        if (sig < best) { best = sig; col = mu; }
+      }
+      // canvas weave and a little brush grain
+      float weave = sin(vUv.x * 900.0) * sin(vUv.y * 900.0) * 0.025 + (hash(floor(vUv * 380.0)) - 0.5) * 0.03;
+      gl_FragColor = vec4(col * (1.0 + weave), 1.0);
+    }`,
+  depthTest: false, depthWrite: false,
+});
+function paintRoom(pr) {
+  if (!pr.canvas) return;
+  const src = document.createElement('canvas');
+  src.width = src.height = 768;
+  const g = src.getContext('2d');
+  const W = canvas.width, Hh = canvas.height, side = Math.min(W, Hh) * 0.86;
+  g.drawImage(canvas, (W - side) / 2, (Hh - side) / 2 - Hh * 0.02, side, side, 0, 0, 768, 768);
+  const tex = new THREE.CanvasTexture(src);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  kuwahara.uniforms.tSrc.value = tex;
+  runPass(kuwahara, paintRT);
+  renderer.setRenderTarget(null);
+  const out = new Uint8Array(768 * 768 * 4);
+  renderer.readRenderTargetPixels(paintRT, 0, 0, 768, 768, out);
+  const img = document.createElement('canvas'); img.width = img.height = 768;
+  const id = img.getContext('2d').createImageData(768, 768);
+  for (let y = 0; y < 768; y++) id.data.set(out.subarray((767 - y) * 768 * 4, (768 - y) * 768 * 4), y * 768 * 4);
+  img.getContext('2d').putImageData(id, 0, 0);
+  const painting = new THREE.CanvasTexture(img);
+  painting.colorSpace = THREE.SRGBColorSpace;
+  tex.dispose();
+  pr.canvas.traverse((o) => {
+    if (!o.isMesh) return;
+    // project the painting flat across the board, whatever UVs the model has
+    const geo = o.geometry;
+    geo.computeBoundingBox();
+    const bb = geo.boundingBox, pos = geo.attributes.position, uv = new Float32Array(pos.count * 2);
+    for (let i = 0; i < pos.count; i++) {
+      uv[i * 2] = (pos.getX(i) - bb.min.x) / Math.max(1e-6, bb.max.x - bb.min.x);
+      uv[i * 2 + 1] = (pos.getY(i) - bb.min.y) / Math.max(1e-6, bb.max.y - bb.min.y);
+    }
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    o.material = toon('#ffffff', { map: painting, side: THREE.DoubleSide });
+  });
+  pr.painted = true;
+  pr.paintingCanvas = img;
+  toast('The room painted itself');
+}
+
+/* ---------- the shelf: add and remove props ---------- */
+function renderShelf() {
+  const list = $('shelfList');
+  if (!list) return;
+  list.innerHTML = '';
+  for (const [type, T] of Object.entries(PROP_TYPES)) {
+    const placed = props.find((p) => p.type === type);
+    const li = document.createElement('li');
+    li.className = 'card' + (placed ? ' placed' : '');
+    li.innerHTML = `<span class="card-text"><b>${T.label}</b><em>${T.note}</em></span>`;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pill' + (placed ? '' : ' primary');
+    btn.textContent = placed ? 'Remove' : 'Add';
+    btn.setAttribute('aria-label', `${placed ? 'Remove' : 'Add'} ${T.label}`);
+    btn.addEventListener('click', () => { if (placed) removeProp(placed); else addProp(type); });
+    li.appendChild(btn);
+    list.appendChild(li);
+  }
+}
+function setShelf(open) {
+  $('shelf').hidden = !open;
+  $('shelfBtn').setAttribute('aria-expanded', String(open));
+  if (open) renderShelf();
+}
+$('shelfBtn').addEventListener('click', () => setShelf($('shelf').hidden));
+$('shelfClose').addEventListener('click', () => setShelf(false));
+$('laserBtn').addEventListener('click', () => {
+  laser.on = !laser.on;
+  $('laserBtn').setAttribute('aria-pressed', String(laser.on));
+  if (laser.on) toast('Move the pointer over the floor');
+  laserDot.visible = false; laser.visible = false;
+});
+
+function stepProps(dt, t) {
+  for (const pr of props) PROP_STEP[pr.type]?.(pr, dt, t);
+  stepWatering(dt);
+  stepPlantPuddle();
+  stepBirds(dt, t);
+  stepBubble(dt);
+}
+
+/* ---------- plant models (models/plants_build.py) ---------- */
+const _sq = new THREE.Quaternion();
+function sway(o, angle) {
+  if (!o.userData.q0) o.userData.q0 = o.quaternion.clone();
+  _sq.setFromAxisAngle(AX.z, angle);
+  o.quaternion.copy(o.userData.q0).multiply(_sq);
+}
+function adoptModel(item, model) {
+  for (const c of [...item.group.children]) item.group.remove(c);
+  unregister(item);
+  item.group.add(model);
+  registerNew(item);
+}
+modelFor('monstera', 'models/monstera.glb').then((m) => {
+  const leaves = [...Array(9)].map((_, i) => findPart(m, `leaf${i}`));
+  if (leaves.some((l) => !l)) return;
+  adoptModel(monsteraItem, m);
+  for (const l of leaves) l.scale.setScalar(0.001);
+  monstera.leaves = leaves;
+});
+modelFor('lemon', 'models/lemon.glb').then((m) => {
+  const fruit = [...Array(6)].map((_, i) => findPart(m, `lemon${i}`));
+  if (fruit.some((f) => !f)) return;
+  adoptModel(lemonItem, m);
+  for (const f of fruit) f.scale.setScalar(0.001);
+  lemon.fruit = fruit;
+});
+loadGLB('models/pothos.glb').then((scene0) => {
+  if (!scene0) return;
+  for (const p of pothos) {
+    const m = toonify(scene0.clone(true));
+    m.position.set(p.x, p.shelfTop, p.z);
+    const vines = [];
+    for (let k = 0; k < 6; k++) {
+      const leaves = [], segs = [];
+      for (let i = 0; ; i++) {
+        const nn = String(i).padStart(2, '0');
+        const lf = findPart(m, `vine${k}_leaf${nn}`), sg = findPart(m, `vine${k}_seg${nn}`);
+        if (!lf) break;
+        leaves.push(lf); if (sg) segs.push(sg);
+      }
+      if (leaves.length) vines.push({ glb: true, k, leaves, segs, max: leaves.length });
+    }
+    if (!vines.length) continue;
+    p.pot.removeFromParent();
+    for (const v of p.vines) for (const lf of v.leaves) lf.removeFromParent();
+    p.vines = vines;
+    wallStuff.add(m);
+    clipTo(m, 'N');
+  }
+});
+
+/* ===================================================================
    CAMERA: orthographic, turns in quarter steps.
    =================================================================== */
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
@@ -2017,15 +2901,25 @@ const snap = (v) => Math.round(v / 0.05) * 0.05;
 canvas.addEventListener('pointerdown', (e) => {
   canvas.focus();
   if (photo.on) { look.focus = clamp(1 - e.clientY / innerHeight, 0.1, 0.9); return; }
+  if (laser.on) { down = null; return; }
   const p = pick(e);
   down = { x: e.clientX, y: e.clientY, p };
   canvas.setPointerCapture(e.pointerId);
 });
 canvas.addEventListener('pointermove', (e) => {
   if (photo.on) return;
+  if (laser.on) {
+    const hit = planeHit(e, new THREE.Plane(new V3(0, 1, 0), -0.002));
+    laser.visible = !!hit && Math.abs(hit.x) < HW - 0.05 && Math.abs(hit.z) < HW - 0.05;
+    if (laser.visible) { laser.target = hit; laserDot.position.set(hit.x, 0.003, hit.z); }
+    laserDot.visible = laser.visible;
+    canvas.className = 'laser';
+    tip.hidden = true;
+    return;
+  }
   if (down && !drag && down.p && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) {
     const it = down.p.item;
-    if (it && (it.kind === 'floor' || it.kind === 'wall' || it.kind === 'cat')) {
+    if (it && (it.kind === 'floor' || it.kind === 'wall' || it.kind === 'cat' || it.kind === 'small')) {
       if (it.kind === 'cat') { cat.held = true; cat.path = []; }
       const plane = it.kind === 'wall' ? new THREE.Plane(new V3(0, 0, 1), HW - 0.013) : new THREE.Plane(new V3(0, 1, 0), 0);
       const start = planeHit(e, plane);
@@ -2042,6 +2936,8 @@ canvas.addEventListener('pointermove', (e) => {
         it.group.position.x = x; it.group.position.y = y; it.x = x;
       } else if (it.kind === 'cat') {
         cat.pos.set(clamp(hit.x, -HW + 0.2, HW - 0.2), 0.25, clamp(hit.z, -HW + 0.2, HW - 0.2));
+      } else if (it.kind === 'small') {
+        placeSmall(it, e, hit);
       } else {
         const f = footprint(it);
         const x = clamp(snap(hit.x + drag.off.x), -HW + f.w / 2, HW - f.w / 2);
@@ -2062,15 +2958,20 @@ canvas.addEventListener('pointermove', (e) => {
     tip.hidden = false;
     tip.style.left = e.clientX + 'px'; tip.style.top = e.clientY + 'px';
   } else tip.hidden = true;
-  const movable = p?.item && ['floor', 'wall', 'cat'].includes(p.item.kind);
-  canvas.className = p?.part?.click || p?.item?.click ? 'point' : movable ? 'grab' : '';
+  const movable = p?.item && ['floor', 'wall', 'cat', 'small'].includes(p.item.kind);
+  canvas.className = water.mode ? 'point' : p?.part?.click || p?.item?.click ? 'point' : movable ? 'grab' : '';
 });
 function endPointer(click) {
   if (drag) {
     const it = drag.it;
     if (it.kind === 'cat') { dropCat(); }
     else if (it.kind === 'floor') { it.group.position.y = 0; itemsMoved(); }
+    else if (it.kind === 'small') { if (it.prop?.vel) it.prop.vel.set(0, 0, 0); }
     drag = null;
+  } else if (click && water.mode) {
+    const it = down?.p?.item;
+    const P = PLANTS().find((P) => (P.item && P.item === it) || (!P.item && down?.p && down.p.hit.point.distanceTo(P.at) < 0.4));
+    if (P) waterPlant(P); else if (it !== water.can?.item) { water.mode = false; toast('Put the watering can away'); }
   } else if (click && down?.p) {
     const c = down.p.part?.click || down.p.item?.click;
     if (c) c();
@@ -2085,6 +2986,11 @@ canvas.addEventListener('lostpointercapture', () => { if (drag || down) endPoint
 canvas.addEventListener('dblclick', (e) => { const p = pick(e); if (p?.item) turnItem(p.item); });
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && photo.on) setPhoto(false);
+  if (e.key === 'Escape' && !$('shelf').hidden) setShelf(false);
+  if ((e.key === 'Delete' || e.key === 'Backspace') && e.target === canvas) {
+    const pr = (drag?.it || hover?.item)?.prop;
+    if (pr) { e.preventDefault(); if (drag) drag = null; removeProp(pr); hover = null; tip.hidden = true; }
+  }
   if (e.key === 'r' || e.key === 'R') turnItem(drag?.it || hover?.item);
   if (e.key === 'q' || e.key === 'Q') turnView(-1);
   if (e.key === 'e' || e.key === 'E') turnView(1);
@@ -2096,6 +3002,37 @@ canvas.addEventListener('wheel', (e) => {
   resize();
 }, { passive: false });
 
+/* a small prop follows the pointer over table tops, or sits on the floor */
+function placeSmall(it, e, floorHit) {
+  pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(pointer, camera);
+  const hits = ray.intersectObjects(pickables.filter((m) => m.userData.item !== it), false);
+  let host = null, point = floorHit.clone();
+  for (const h of hits) {
+    const owner = h.object.userData.item;
+    if (owner !== deskItem && owner !== bookcaseItem) continue;
+    const n = h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld) : null;
+    if (n && n.y > 0.7) {
+      const s = surfaceAt(h.point);
+      if (s) { host = s.item; point = h.point.clone(); point.y = s.y; }
+    }
+    break;
+  }
+  const g = it.group;
+  if (it.prop?.type === 'yarn') host = null;
+  if (host) {
+    host.group.attach(g);
+    const local = host.group.worldToLocal(point.clone());
+    g.position.set(local.x, host === deskItem ? 0.755 : 0.8, local.z);
+  } else {
+    scene.attach(g);
+    g.position.set(clamp(point.x, -HW + 0.1, HW - 0.1), it.prop?.type === 'yarn' ? 0.05 : 0, clamp(point.z, -HW + 0.1, HW - 0.1));
+    g.rotation.set(0, g.rotation.y, 0);
+  }
+  it.host = host;
+  const w = g.getWorldPosition(new V3());
+  it.x = w.x; it.z = w.z;
+}
 function dropCat() {
   cat.held = false;
   const seat = cat.pos.x < SEAT.x1 && cat.pos.z > SEAT.z0 && cat.pos.z < SEAT.z1;
@@ -2202,16 +3139,35 @@ $('rain').addEventListener('click', () => { setRain(!weather.rain); toast(weathe
 setRain(weather.rain);
 $('recStop').addEventListener('click', () => { if (rec.mr?.state === 'recording') rec.mr.stop(); });
 
-const movable = () => items.filter((it) => it.kind === 'floor' || it.kind === 'wall');
+const movable = () => items.filter((it) => !it.prop && (it.kind === 'floor' || it.kind === 'wall'));
+function propState(pr) {
+  const it = pr.item, g = it.group;
+  if (PROP_TYPES[pr.type].place === 'slot') return [pr.type];
+  if (it.host) return [pr.type, it.host.name, +g.position.x.toFixed(3), +g.position.y.toFixed(3), +g.position.z.toFixed(3), 0];
+  const w = g.getWorldPosition(new V3());
+  return [pr.type, null, +w.x.toFixed(3), 0, +w.z.toFixed(3), it.rot || 0];
+}
 function roomState() {
   return {
     v: 1, r: weather.rain ? 1 : 0, t: +clock.h.toFixed(2), a: Math.round((view.target / DEG - 45) / 90), c: +backCut.toFixed(2), o: windowState.open ? 1 : 0,
     g: [monstera.growth, lemon.growth].map((v) => +v.toFixed(3)),
     i: movable().map((it) => [it.name, +it.x.toFixed(3), +(it.kind === 'wall' ? it.group.position.y : it.z).toFixed(3), it.rot]),
+    p: props.map(propState),
   };
 }
 function applyRoom(st) {
   if (!st || st.v !== 1 || !Number.isFinite(+st.t)) return false;
+  if (Array.isArray(st.p)) {
+    roomHadProps = true;
+    for (const pr of [...props]) removeProp(pr);
+    for (const [type, host, x, y, z, rot] of st.p) {
+      if (!PROP_TYPES[type] || props.some((q) => q.type === type)) continue;
+      const P = PROP_TYPES[type];
+      if (P.place === 'slot') addProp(type);
+      else if (host && P.place === 'small') addProp(type, { host, x: +x || 0, y: +y || undefined, z: +z || 0 });
+      else if (Number.isFinite(+x) && Number.isFinite(+z)) addProp(type, { x: +x, z: +z, rot: rot | 0 });
+    }
+  }
   clock.h = ((+st.t % 24) + 24) % 24;
   view.target = view.angle = (45 + 90 * (st.a | 0)) * DEG;
   backCut = clamp(+st.c || H, 0.3, H);
@@ -2243,6 +3199,7 @@ $('share').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(url); toast('Link copied. It opens this exact room.'); }
   catch { toast('The link to this room is in the address bar'); }
 });
+let roomHadProps = false;
 function restoreRoom() {
   try {
     if (location.hash.startsWith('#room=')) return applyRoom(decodeRoom(location.hash.slice(6)));
@@ -2278,7 +3235,8 @@ function buildRadio() {
   radio.el.addEventListener('error', () => { if (radio.on) setTimeout(nextTrack, 800); });
   const music = ctx.createGain();
   music.gain.value = 0.8;
-  ctx.createMediaElementSource(radio.el).connect(music).connect(radio.master);
+  radio.panner = ctx.createStereoPanner();
+  ctx.createMediaElementSource(radio.el).connect(music).connect(radio.panner).connect(radio.master);
   for (const name of LAYERS) {
     const gain = ctx.createGain();
     gain.gain.value = 0;
@@ -2304,7 +3262,6 @@ function nextTrack() {
 async function setRadio(on) {
   if (on && !radio.ctx && !buildRadio()) { toast('This browser cannot play the radio'); return; }
   radio.on = on;
-  $('radioBtn').setAttribute('aria-pressed', String(on));
   $('radio').hidden = !on;
   if (on) {
     await radio.ctx.resume();
@@ -2314,28 +3271,26 @@ async function setRadio(on) {
     radio.ctx.suspend();
   }
 }
-$('radioBtn').addEventListener('click', () => {
-  setRadio(!radio.on);
+function rememberRadio() {
   try { localStorage.setItem('cat-room-radio', radio.on ? 'on' : 'off'); } catch { /* nothing to remember in private mode */ }
-});
-/* The radio is on unless someone turned it off. Browsers only let sound start
-   from a gesture, so it waits, visibly on, for the first touch or key. */
-{
+}
+/* The radio on the shelf plays unless someone switched it off. Browsers only
+   let sound start from a gesture, so it waits, visibly on, for the first touch. */
+function armRadio() {
+  if (!props.some((p) => p.type === 'radio')) return;
   let off = params.has('fixed') || params.get('radio') === '0';
   try { off = off || localStorage.getItem('cat-room-radio') === 'off'; } catch { /* default on */ }
-  if (!off) {
-    $('radioBtn').setAttribute('aria-pressed', 'true');
-    $('radio').hidden = false;
-    $('trackTitle').textContent = 'Tap the room to listen';
-    const start = (e) => {
-      if (e.target.closest?.('#radioBtn')) return; // the button handles its own click
-      removeEventListener('pointerdown', start, true);
-      removeEventListener('keydown', start, true);
-      if (!radio.on) setRadio(true);
-    };
-    addEventListener('pointerdown', start, true);
-    addEventListener('keydown', start, true);
-  }
+  if (off) return;
+  $('radio').hidden = false;
+  $('trackTitle').textContent = 'Tap the room to listen';
+  const start = () => {
+    removeEventListener('pointerdown', start, true);
+    removeEventListener('keydown', start, true);
+    // a click on the radio itself toggles it, so let that click land first
+    setTimeout(() => { if (!radio.on && props.some((p) => p.type === 'radio')) setRadio(true); }, 0);
+  };
+  addEventListener('pointerdown', start, true);
+  addEventListener('keydown', start, true);
 }
 $('nextTrack').addEventListener('click', nextTrack);
 function stepAudio() {
@@ -2394,7 +3349,10 @@ let last = performance.now(), time = 0, grownLast = -1;
 /* ?fixed renders only when asked, one 1/30 s step at a time, for frame-exact videos */
 const FIXED = params.has('fixed');
 const SPEED = num('speed', 1 / 45);
-if (restoreRoom()) { timeInput.value = Math.round(clock.h * 60); cutInput.value = backCut; setRain(weather.rain); }
+const restored = restoreRoom();
+if (restored) { timeInput.value = Math.round(clock.h * 60); cutInput.value = backCut; setRain(weather.rain); }
+if (!props.some((p) => p.type === 'radio') && !roomHadProps) addProp('radio', { host: 'Bookcase', x: 0.2, y: 0.8, z: 0.01 });
+armRadio();
 rebuildGrid();
 updateWalls(-1);
 for (const k of WALL_KEYS) buildWall(k);
@@ -2501,23 +3459,31 @@ function frame(now) {
   // plants grow in the sun
   {
     monstera.lit = sunlit(new V3(monsteraItem.x, 0.7, monsteraItem.z));
-    if (monstera.lit) monstera.growth = Math.min(1, monstera.growth + dt * 0.0045);
+    if (monstera.lit && thriving(monstera, dt)) monstera.growth = Math.min(1, monstera.growth + dt * 0.0045);
     const count = monsteraCount();
     const sc = 0.85 + monstera.growth * 0.3;
     monstera.leaves.forEach((u, i) => {
       const target = i < count ? sc * (i === count - 1 ? clamp((monstera.growth * 5.01 % 1) * 1.6 + 0.4, 0.4, 1) : 1) : 0.001;
       u.scale.setScalar(lerp(u.scale.x, target, damp(dt, 2)));
-      u.rotation.z = Math.sin(time * 1.3 + i) * 0.015 * (1 + wind.v * 3);
+      sway(u, Math.sin(time * 1.3 + i) * 0.015 * (1 + wind.v * 3));
     });
     lemon.lit = sunlit(new V3(lemonItem.x, 0.85, lemonItem.z));
-    if (lemon.lit) lemon.growth = Math.min(1, lemon.growth + dt * 0.004);
+    if (lemon.lit && thriving(lemon, dt)) lemon.growth = Math.min(1, lemon.growth + dt * 0.004);
     const n = lemonCount();
     lemon.fruit.forEach((f, i) => f.scale.setScalar(lerp(f.scale.x, i < n ? 1 : 0.001, damp(dt, 2))));
     for (const p of pothos) {
       p.lit = sunlit(new V3(p.x, p.y - 0.2, p.z + 0.1));
-      if (p.lit) p.growth = Math.min(1, p.growth + dt * 0.004);
+      if (p.lit && thriving(p, dt)) p.growth = Math.min(1, p.growth + dt * 0.004);
       p.vines.forEach((v) => {
         const n = Math.round(4 + p.growth * (v.max - 4));
+        if (v.glb) {
+          v.leaves.forEach((lf, i) => {
+            lf.scale.setScalar(lerp(lf.scale.x, i < n ? 1 : 0.001, damp(dt, 2)));
+            sway(lf, Math.sin(time * 0.9 + i * 0.7 + v.k) * 0.05 * (1 + wind.v * 3));
+          });
+          v.segs.forEach((sg, i) => { sg.visible = i < n; });
+          return;
+        }
         v.leaves.forEach((lf, i) => {
           const s = i / (v.max - 1);
           const drop = i * 0.055;
@@ -2556,6 +3522,7 @@ function frame(now) {
   stepPapers(dt, time);
   stepCat(dt, time);
   stepRecording(dt);
+  stepProps(dt, time);
   stepAudio();
   stepRain(dt, time);
   stepWet(dt);
@@ -2568,7 +3535,7 @@ function frame(now) {
 }
 
 window.__room = {
-  frames: 0, cat, clock, items, view, resize, camera, radio, sunlit, lantern, windowState, monstera, lemon, papers, tea,
+  frames: 0, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, windowState, sunlit, lantern, windowState, monstera, lemon, papers, tea,
   get: (name) => items.find((i) => i.name === name),
   move(name, x, z, rot = 0) { const it = this.get(name); Object.assign(it, { x, z, rot }); placeItem(it); itemsMoved(); },
   project(v) { const p = new V3(...v).project(camera); return [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight]; },

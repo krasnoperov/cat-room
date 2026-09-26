@@ -1,0 +1,13 @@
+import { chromium } from '/home/alv/projects/makefx/node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/index.mjs';
+import fs from 'node:fs';
+const S = process.argv[2];
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+page.on('pageerror', (e) => console.log('err', e.message));
+await page.goto('http://localhost:8123/index.html?t=17.6&paused=1&clean=1');
+await page.waitForFunction(() => window.__room && window.__room.frames > 5);
+await page.evaluate(() => window.__room.addProp('easel'));
+await page.waitForTimeout(3000);
+const url = await page.evaluate(() => { const e = window.__room.props.find((p) => p.type === 'easel'); e.item.click(); return e.paintingCanvas.toDataURL('image/png'); });
+fs.writeFileSync(`${S}/painting.png`, Buffer.from(url.split(',')[1], 'base64'));
+await browser.close();
