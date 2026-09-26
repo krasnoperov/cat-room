@@ -1,9 +1,24 @@
 <template>
-  <div id="root" data-composition-id="08-cta" data-width="1920" data-height="1080" data-duration="5.5">
+  <div id="root" data-composition-id="08-cta" data-width="1920" data-height="1080" data-start="0" data-duration="8">
     <style>
-      @font-face { font-family: "Fraunces"; src: url("assets/fonts/fraunces-normal-latin.woff2") format("woff2"); font-weight: 100 900; font-style: normal; }
-      @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-400.woff2") format("woff2"); font-weight: 400; font-style: normal; }
-      @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+      @font-face {
+        font-family: "Fraunces";
+        src: url("assets/fonts/fraunces-normal-latin.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 400 700;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("assets/fonts/JetBrainsMono-400.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("assets/fonts/JetBrainsMono-700.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 700;
+      }
 
       #root {
         position: relative;
@@ -11,171 +26,276 @@
         height: 1080px;
         overflow: hidden;
         container-type: size;
+        pointer-events: none;
       }
-      #root .\30 8-cta-veil {
+
+      /* Sky layer: the stars ride over the footage's own indigo night. */
+      #root .cta08-sky {
         position: absolute;
         inset: 0;
-        background: rgba(65, 56, 77, 0.25); /* ink veil: the night room reads at ~75% */
       }
-      #root .\30 8-cta-stage {
+      #root .cta08-star {
+        position: absolute;
+        border-radius: 50%;
+        background: #FFFAF3;
+        box-shadow: 0 0 4px 1px rgba(255, 250, 243, 0.55), 0 0 10px 2px rgba(255, 250, 243, 0.18);
+        opacity: 0;
+        will-change: transform, opacity;
+      }
+
+      /* Lockup layer: centred in the upper sky, the room sits beneath it. */
+      #root .cta08-stage {
         position: absolute;
         inset: 0;
       }
-      #root .\30 8-cta-lockup {
+      #root .cta08-wordmark {
         position: absolute;
         left: 0;
         right: 0;
-        top: 296px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        transform-origin: 50% 40%;
-      }
-      #root .\30 8-cta-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 1.1cqw;
-      }
-      #root .\30 8-cta-word {
+        top: 36px; /* baseline lands near y 200 */
+        margin: 0;
+        text-align: center;
         font-family: "Fraunces", Georgia, serif;
+        font-style: normal;
         font-weight: 400;
-        font-size: 9.9cqw;
-        line-height: 0.98;
+        font-size: 190px; /* display-cover, 9.9cqw */
+        line-height: 1;
         letter-spacing: -0.028em;
         color: #FFFAF3;
-        white-space: pre;
-        margin: 0;
+        white-space: nowrap;
+        text-shadow: 0 2px 22px rgba(24, 22, 21, 0.32);
       }
-      #root .\30 8-cta-letter {
+      #root .cta08-letter {
         display: inline-block;
         will-change: transform, opacity;
       }
-      #root .\30 8-cta-spike {
-        width: 5.2cqw;
-        height: 5.2cqw;
-        margin-top: 1.4cqw;
-        overflow: visible;
+      #root .cta08-space {
+        width: 0.24em;
       }
-      #root .\30 8-cta-spike line {
+      #root .cta08-mark {
+        position: relative;
+        display: inline-block;
+        width: 0.34em;
+        height: 0.34em;
+        margin-left: 0.1em;
+        vertical-align: baseline;
+        top: -0.01em;
+      }
+      #root .cta08-glow {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 2.4em;
+        height: 2.4em;
+        margin-left: -1.2em;
+        margin-top: -1.2em;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(224, 137, 74, 0.55) 0%, rgba(224, 137, 74, 0.2) 34%, rgba(224, 137, 74, 0) 68%);
+        opacity: 0;
+        will-change: transform, opacity;
+      }
+      #root .cta08-spike {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        opacity: 0;
+        will-change: transform, opacity;
+      }
+      #root .cta08-spike line {
         fill: none;
         stroke: #E0894A;
-        stroke-width: 13;
+        stroke-width: 15;
         stroke-linecap: round;
-        stroke-dasharray: 1;
-        stroke-dashoffset: 1;
       }
-      #root .\30 8-cta-url {
-        margin-top: 2.3cqw;
-        font-family: "JetBrains Mono", monospace;
-        font-weight: 400;
-        font-size: 2.5cqw;
-        letter-spacing: 0.02em;
-        line-height: 1;
-        color: #E0894A;
-        white-space: pre;
-        display: flex;
-        align-items: center;
-      }
-      #root .\30 8-cta-char { opacity: 0; }
-      #root .\30 8-cta-caret {
-        display: inline-block;
-        width: 0.12em;
-        height: 1.05em;
-        margin-left: 0.08em;
-        background: #E0894A;
-        opacity: 0;
-      }
-      #root .\30 8-cta-credit {
+      #root .cta08-url {
         position: absolute;
         left: 0;
         right: 0;
-        top: 832px;
+        top: 262px; /* centre near y 284 */
+        margin: 0;
         text-align: center;
-        font-family: "JetBrains Mono", monospace;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
         font-weight: 400;
-        font-size: 26px;
-        letter-spacing: 0.08em;
+        font-size: 44px;
         line-height: 1;
+        letter-spacing: 0.18em;
+        color: #E0894A;
+        white-space: nowrap;
+        text-shadow: 0 2px 16px rgba(24, 22, 21, 0.35);
+      }
+      #root .cta08-char {
+        display: inline-block;
+        will-change: transform, opacity;
+      }
+      #root .cta08-credit {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 322px; /* directly under the URL, clear of the room top (~y 378) */
+        margin: 0;
+        text-align: center;
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-weight: 400;
+        font-size: 22px;
+        line-height: 1;
+        letter-spacing: 0.08em;
         color: #FFFAF3;
-        white-space: pre;
+        white-space: nowrap;
+        text-shadow: 0 1px 10px rgba(24, 22, 21, 0.4);
+        opacity: 0;
       }
     </style>
 
     <!-- approved frame video hoisted by assemble-index -->
 
-    <div class="clip 08-cta-veil" data-start="0" data-duration="5.5" data-track-index="1"></div>
+    <div id="cta08-sky" class="clip cta08-sky" data-start="0" data-duration="8" data-track-index="1"></div>
 
-    <div class="clip 08-cta-stage" data-start="0" data-duration="5.5" data-track-index="2">
-      <div class="08-cta-lockup">
-        <div class="08-cta-row">
-          <h1 class="08-cta-word" aria-label="Cat Room"><span class="08-cta-letter">C</span><span class="08-cta-letter">a</span><span class="08-cta-letter">t</span><span class="08-cta-letter"> </span><span class="08-cta-letter">R</span><span class="08-cta-letter">o</span><span class="08-cta-letter">o</span><span class="08-cta-letter">m</span></h1>
-          <svg class="08-cta-spike" viewBox="0 0 100 100" aria-hidden="true">
-            <line x1="50" y1="50" x2="50" y2="8" pathLength="1" />
-            <line x1="50" y1="50" x2="79.7" y2="20.3" pathLength="1" />
-            <line x1="50" y1="50" x2="92" y2="50" pathLength="1" />
-            <line x1="50" y1="50" x2="79.7" y2="79.7" pathLength="1" />
-            <line x1="50" y1="50" x2="50" y2="92" pathLength="1" />
-            <line x1="50" y1="50" x2="20.3" y2="79.7" pathLength="1" />
-            <line x1="50" y1="50" x2="8" y2="50" pathLength="1" />
-            <line x1="50" y1="50" x2="20.3" y2="20.3" pathLength="1" />
-          </svg>
-        </div>
-        <div class="08-cta-url" aria-label="rooms.krasnoperov.me"><span class="08-cta-char">r</span><span class="08-cta-char">o</span><span class="08-cta-char">o</span><span class="08-cta-char">m</span><span class="08-cta-char">s</span><span class="08-cta-char">.</span><span class="08-cta-char">k</span><span class="08-cta-char">r</span><span class="08-cta-char">a</span><span class="08-cta-char">s</span><span class="08-cta-char">n</span><span class="08-cta-char">o</span><span class="08-cta-char">p</span><span class="08-cta-char">e</span><span class="08-cta-char">r</span><span class="08-cta-char">o</span><span class="08-cta-char">v</span><span class="08-cta-char">.</span><span class="08-cta-char">m</span><span class="08-cta-char">e</span><span class="08-cta-caret"></span></div>
-      </div>
-      <p class="08-cta-credit">made with Claude · Blender · makefx</p>
+    <div id="cta08-stage" class="clip cta08-stage" data-start="0" data-duration="8" data-track-index="2">
+      <h1 id="cta08-wordmark" class="cta08-wordmark" role="img" aria-label="Cat Room"><span class="cta08-letter">C</span><span class="cta08-letter">a</span><span class="cta08-letter">t</span><span class="cta08-letter cta08-space"> </span><span class="cta08-letter">R</span><span class="cta08-letter">o</span><span class="cta08-letter">o</span><span class="cta08-letter">m</span><span id="cta08-mark" class="cta08-mark" aria-hidden="true"><span id="cta08-glow" class="cta08-glow"></span><svg id="cta08-spike" class="cta08-spike" viewBox="0 0 100 100"><line x1="50" y1="50" x2="50" y2="9" /><line x1="50" y1="50" x2="79" y2="21" /><line x1="50" y1="50" x2="91" y2="50" /><line x1="50" y1="50" x2="79" y2="79" /><line x1="50" y1="50" x2="50" y2="91" /><line x1="50" y1="50" x2="21" y2="79" /><line x1="50" y1="50" x2="9" y2="50" /><line x1="50" y1="50" x2="21" y2="21" /></svg></span></h1>
+      <p id="cta08-url" class="cta08-url" aria-label="rooms.krasnoperov.me"></p>
+      <p id="cta08-credit" class="cta08-credit">made with Claude · Blender · makefx</p>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
     <script>
       (function () {
         var FRAME = "08-cta";
-        var DURATION = 5.5;
+        var DURATION = 8;
         var root = document.querySelector('[data-composition-id="' + FRAME + '"]');
-        var q = function (cls) { return Array.prototype.slice.call(root.querySelectorAll('[class~="' + cls + '"]')); };
+        var one = function (id) { return root.querySelector('[id="' + id + '"]'); };
+        var all = function (cls) { return Array.prototype.slice.call(root.querySelectorAll('[class~="' + cls + '"]')); };
 
-        var letters = q("08-cta-letter");
-        var lockup = q("08-cta-lockup");
-        var spike = q("08-cta-spike");
-        var spokes = Array.prototype.slice.call(spike[0].querySelectorAll("line"));
-        var chars = q("08-cta-char");
-        var caret = q("08-cta-caret");
-        var credit = q("08-cta-credit");
+        // ---- Stars: deterministic field from a seeded hash (mulberry32), no Math.random ----
+        var seed = 0x0c47a11 >>> 0;
+        var rand = function () {
+          seed = (seed + 0x6d2b79f5) >>> 0;
+          var t = seed;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+        var SKY_BOTTOM = 590;          // upper ~55% of the frame only
+        var LOCKUP = { x0: 430, x1: 1490, y0: 0, y1: 360 }; // never behind the lockup text
+        var ROOM = { x0: 640, x1: 1280, y0: 420 };            // the receding room's crown
+        var stars = [];
+        var guard = 0;
+        while (stars.length < 70 && guard < 5000) {
+          guard++;
+          var x = 28 + rand() * (1920 - 56);
+          var y = 22 + rand() * (SKY_BOTTOM - 22);
+          var size = 1.5 + rand() * 2.0;
+          var level = 0.52 + rand() * 0.16;
+          var jitter = rand();
+          if (x > LOCKUP.x0 && x < LOCKUP.x1 && y > LOCKUP.y0 && y < LOCKUP.y1) continue;
+          if (x > ROOM.x0 && x < ROOM.x1 && y > ROOM.y0) continue;
+          var crowded = false;
+          for (var k = 0; k < stars.length; k++) {
+            var dx = stars[k].x - x, dy = stars[k].y - y;
+            if (dx * dx + dy * dy < 46 * 46) { crowded = true; break; }
+          }
+          if (crowded) continue;
+          stars.push({ x: x, y: y, size: size, level: level, jitter: jitter });
+        }
+        // The sky opens from the edges inward as the room recedes: farthest stars first.
+        stars.forEach(function (s) {
+          var dx = (s.x - 960) / 960, dy = (s.y - 900) / 900;
+          s.dist = Math.sqrt(dx * dx + dy * dy);
+        });
+        var order = stars.slice().sort(function (a, b) { return b.dist - a.dist; });
+        order.forEach(function (s, rank) { s.rank = rank; });
+
+        var sky = one("cta08-sky");
+        stars.forEach(function (s, i) {
+          var el = document.createElement("span");
+          el.id = "cta08-star-" + i;
+          el.className = "cta08-star";
+          el.style.left = (s.x - s.size / 2).toFixed(1) + "px";
+          el.style.top = (s.y - s.size / 2).toFixed(1) + "px";
+          el.style.width = s.size.toFixed(2) + "px";
+          el.style.height = s.size.toFixed(2) + "px";
+          sky.appendChild(el);
+          s.el = el;
+        });
+
+        // ---- URL characters: per-char spans so tracking settles on the compositor ----
+        var URL = "rooms.krasnoperov.me";
+        var urlEl = one("cta08-url");
+        var chars = Array.from(URL).map(function (c, i) {
+          var span = document.createElement("span");
+          span.id = "cta08-char-" + i;
+          span.className = "cta08-char";
+          span.setAttribute("aria-hidden", "true");
+          span.textContent = c;
+          urlEl.appendChild(span);
+          return span;
+        });
+
+        var wordmark = one("cta08-wordmark");
+        var letters = all("cta08-letter");
+        var spike = one("cta08-spike");
+        var glow = one("cta08-glow");
+        var credit = one("cta08-credit");
 
         var tl = gsap.timeline({ paused: true });
 
-        // Life in the hold: the whole lockup creeps up in scale across the frame.
-        tl.fromTo(lockup, { scale: 0.985 }, { scale: 1.015, duration: DURATION, ease: "none" }, 0);
+        // Scene 1 (0.0-2.8s): footage only. The room turns, lamps lit; no type while it turns.
+        tl.set({}, {}, 0);
 
-        // Scene 1 (0.0–1.4s): "Cat Room" assembles letter by letter, per-letter staggered rise.
+        // Scene 2 (2.8-4.6s): stars come out, each on its own time, one finite twinkle 0.3 -> 1 -> ~0.6.
+        stars.forEach(function (s) {
+          var t = 2.8 + (s.rank / (stars.length - 1)) * 1.45 + s.jitter * 0.15;
+          tl.fromTo(s.el,
+            { opacity: 0, scale: 0.5 },
+            { opacity: 0.3, scale: 1, duration: 0.34, ease: "power3.out" }, t);
+          tl.to(s.el, { opacity: 1, duration: 0.22, ease: "power3.out" }, t + 0.34);
+          tl.to(s.el, { opacity: s.level, duration: 0.7, ease: "expo.out" }, t + 0.56);
+        });
+
+        // Scene 2: the wordmark cascades in (logo-brand-close cascade): per-letter fade + rise,
+        // long expo tail, while the whole word settles from 1.04 to 1.
+        var CASCADE_AT = 3.0;
         tl.fromTo(letters,
-          { opacity: 0, y: 70 },
-          { opacity: 1, y: 0, duration: 0.6, ease: "power3.out", stagger: 0.1 },
-          0.12);
+          { opacity: 0, y: "0.62em" },
+          { opacity: 1, y: "0em", duration: 1.15, ease: "expo.out", stagger: { amount: 0.7, from: "start" } },
+          CASCADE_AT);
+        tl.fromTo(wordmark,
+          { scale: 1.04, transformOrigin: "50% 100%" },
+          { scale: 1, duration: 2.4, ease: "expo.out" },
+          CASCADE_AT);
 
-        // Scene 2 (1.4–2.8s): the coral spike draws in beside the wordmark (svg-path-draw, spokes from center).
-        tl.fromTo(spike, { opacity: 0, scale: 0.92, transformOrigin: "50% 50%" },
-          { opacity: 1, scale: 1, duration: 0.7, ease: "power1.out" }, 1.4);
-        spokes.forEach(function (s, i) {
-          tl.fromTo(s, { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.34, ease: "power2.out" }, 1.42 + i * 0.06);
-        });
+        // Scene 3 (4.6-5.6s): the coral spike arrives last, the brand-period beat; one glow bloom.
+        tl.fromTo(spike,
+          { opacity: 0, scale: 0.2, y: "0.08em", transformOrigin: "50% 50%" },
+          { opacity: 1, scale: 1, y: "0em", duration: 0.9, ease: "expo.out" },
+          4.6);
+        tl.fromTo(glow,
+          { opacity: 0, scale: 0.35 },
+          { opacity: 1, scale: 1.15, duration: 0.45, ease: "power3.out" },
+          4.62);
+        tl.to(glow, { opacity: 0.38, scale: 1, duration: 1.0, ease: "expo.out" }, 5.07);
 
-        // Scene 2: the URL types in beneath in coral mono.
-        var TYPE_START = 1.95, PER_CHAR = 0.042;
-        tl.set(caret, { opacity: 1 }, TYPE_START - 0.08);
-        chars.forEach(function (c, i) {
-          tl.set(c, { opacity: 1 }, TYPE_START + i * PER_CHAR);
-        });
-        var typedEnd = TYPE_START + chars.length * PER_CHAR;
-        // Two deterministic caret blinks, then it retires so the URL holds clean.
-        tl.set(caret, { opacity: 0 }, typedEnd + 0.25);
-        tl.set(caret, { opacity: 1 }, typedEnd + 0.5);
-        tl.set(caret, { opacity: 0 }, typedEnd + 0.75);
+        // Scene 4 (5.6-8.0s): the URL settles beneath, tracking easing from ~0.5em to 0.18em
+        // (per-char x offsets converge on the set tracking, so the settle stays smooth under seek).
+        var fontPx = 44;
+        var extra = (0.5 - 0.18) * fontPx;
+        var mid = (chars.length - 1) / 2;
+        tl.fromTo(chars,
+          { opacity: 0, x: function (i) { return (i - mid) * extra; } },
+          { opacity: 1, x: 0, duration: 1.3, ease: "expo.out" },
+          5.6);
 
-        // Scene 3 (2.8–5.5s): the small credit line fades in near the bottom of the safe area; all holds.
-        tl.fromTo(credit, { opacity: 0, y: 14 }, { opacity: 0.78, y: 0, duration: 0.7, ease: "power1.out" }, 2.9);
+        // 6.4s: the credit fades in beneath, cream at 70%.
+        tl.fromTo(credit,
+          { opacity: 0, y: 10 },
+          { opacity: 0.7, y: 0, duration: 0.9, ease: "power3.out" },
+          6.4);
 
+        // Final frame: hold dead still to the last frame, no exit.
         tl.set({}, {}, DURATION);
 
+        tl.seek(0);
         window.__timelines = window.__timelines || {};
         window.__timelines[FRAME] = tl;
       })();

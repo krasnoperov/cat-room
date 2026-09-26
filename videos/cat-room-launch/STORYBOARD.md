@@ -21,55 +21,50 @@ music: none
 - **Negative list:** no bouncy/elastic eases, no infinite loops, no floating bokeh, no purple AI gradients, no fake UI chrome, no cursors except the real page in Frame 4, no text over the cat's face, no slideshow front-loading, no screensaver drift on the type layer.
 
 
-## Frame 1 — Someone lives here
+## Frame 1 — Shh
 
 - type: hook
-- blueprint: kinetic-type-beats
-- duration: 4s
-- poster: 3s
+- blueprint: zoom-out-workspace-reveal
+- duration: 4.5s
+- poster: 3.4s
 - transition_in: cut
 - status: animated
-- scene: Close on the ginger cat asleep in the window light; three short serif lines land one by one
+- scene: Extreme close-up of the ginger cat asleep in the sun, shallow miniature focus; a whispered "shh" and a line, then the camera starts to pull back
 - voiceover: "(no narration: music bed only; the on-screen copy is quoted in the Scene lines and IS meant to be rendered)"
-- asset_candidates: clips/c02-cat-sunbeam.mp4
+- asset_candidates: clips/c00-hook-pullback.mp4
 - src: compositions/frames/01-hook.html
-- focal: clips/c02-cat-sunbeam.mp4
-- roles: c02-cat-sunbeam = background (full strength)
+- focal: clips/c00-hook-pullback.mp4
+- roles: c00-hook-pullback = background (full strength, data-media-start 0)
 
-Adapt (kinetic-type-beats): keep the signature beat-by-beat statement build; the lines stack instead of swapping, over live footage instead of a bare canvas.
-Scene 1 (0.0–1.1s): full-bleed clip of the sleeping cat in the sun; "A small room." enters upper-left third by per-word staggered reveal (`dynamic-content-sequencing`), display-italic, ink on a faint cream veil strip. Rule-of-thirds, text ~35% width.
-Scene 2 (1.1–2.2s): "A big window." lands beneath it on its cue, same move.
-Scene 3 (2.2–4.0s): "And someone who lives here." lands as the third line, the word "someone" in coral; the petting heart rises in the footage; hold still to the cut.
+Adapt (zoom-out-workspace-reveal): the footage itself carries the signature move — tight on one living detail, then ONE continuous decelerating pull-back to the whole. The type layer only whispers and gets out of the way.
+Scene 1 (0.0–0.9s): the frame opens on the sleeping cat filling the screen, blurred edges (tilt-shift in the footage); nothing else for a beat. A warm organic light leak drifts across from the upper-left (adapt the installed `organic-light-leak-overlay` block's look: soft amber blooms, screen blend, low opacity, finite and seek-safe) and fades by 1.6s.
+Scene 2 (0.9–2.2s): a tiny lowercase italic "shh." fades in beside the cat's head (upper-right third), cream on a soft ink shadow, display-italic at lead size; at ~0.95s a small heart already rises in the footage.
+Scene 3 (2.2–3.4s): "shh." is replaced in place (hard-cut word swap, `discrete-text-sequence`) by "someone is asleep in the sun." in the same spot and style, the word "sun" in coral.
+Scene 4 (3.4–4.5s): as the camera pull-back in the footage accelerates, the caption lifts and fades (y −24px, opacity → 0, power3.in) so the reveal is clean; this is the only exit and it is inside the frame because Frame 2 continues the same shot on a hard cut.
 
-
-Open on the payoff creature, not the product name. The cat breathing in the sun
-patch is the hook; the three beats name the room like a picture book. The heart
-that floats up at ~2.3s in the clip (the cat is petted) lands just after the last
-line.
+Open on a living detail, not a product: the viewer has to lean in to understand what they are looking at, and Frame 2 answers it.
 
 ## Frame 2 — Cat Room
 
 - type: product_intro
 - blueprint: titlecard-reveal
-- duration: 4s
-- poster: 2.5s
-- transition_in: crossfade
+- duration: 3.5s
+- poster: 2.6s
+- transition_in: cut
 - status: animated
-- scene: The whole isometric room in morning light, slow push-in; the wordmark "Cat Room" and one line under it
+- scene: The same shot continues: the pull-back settles on the whole room floating in the sky; the wordmark lands in the empty sky beside it
 - voiceover: "(no narration: music bed only; the on-screen copy is quoted in the Scene lines and IS meant to be rendered)"
-- asset_candidates: clips/c01-morning-wide.mp4
+- asset_candidates: clips/c00-hook-pullback.mp4
 - src: compositions/frames/02-intro.html
-- focal: clips/c01-morning-wide.mp4
-- roles: c01-morning-wide = background (full strength)
+- focal: clips/c00-hook-pullback.mp4
+- roles: c00-hook-pullback = background (full strength, data-media-start 4.5 — seamless continuation of Frame 1)
 
-Reproduce (titlecard-reveal): one restrained move, then a still hold.
-Scene 1 (0.0–0.8s): the whole room in morning light, footage only (its own slow push-in is the camera).
-Scene 2 (0.8–2.2s): wordmark "Cat Room" rises in by slide-up crossfade upper-left, display-cover size, ink, with the coral ✱ spike beside it. Asymmetric 70/30 against the room.
-Scene 3 (2.2–4.0s): the line "a little world that lives on its own" fades up under it in display-italic at lead size; hold.
+Reproduce (titlecard-reveal): one restrained move landing in the open sky, then a still hold.
+Scene 1 (0.0–1.4s): footage only; the pull-back decelerates and the room settles centre-right, floating in soft blue sky.
+Scene 2 (1.4–2.4s): in the open sky upper-left, the wordmark "Cat Room" assembles letter by letter (per-letter rise with a long power3 tail, 0.035s stagger), display-cover size, ink; the coral ✱ spike pops in last beside it (scale 0.6→1, power3.out, no overshoot).
+Scene 3 (2.4–3.5s): "a little world that lives on its own" fades up beneath in display-italic at lead size, ink at 80%; hold dead still.
 
-
-Name the product over the establishing wide. Restrained: one title, one line,
-the room does the rest.
+The answer to the hook: the sleeping cat lives in this.
 
 ## Frame 3 — The cat follows the sun
 
@@ -193,21 +188,21 @@ radio.
 
 - type: cta
 - blueprint: logo-assemble-lockup
-- duration: 5.5s
-- poster: 4s
+- duration: 8s
+- poster: 7.2s
 - transition_in: crossfade
 - status: animated
-- scene: The room at night slowly turning; wordmark, URL and a small credit line settle over it
+- scene: Night. The room, every lamp lit, swings round to show its doorway, then recedes into the indigo sky; stars come out; the wordmark and URL settle above it
 - voiceover: "(no narration: music bed only; the on-screen copy is quoted in the Scene lines and IS meant to be rendered)"
-- asset_candidates: clips/c10-night-turn.mp4
+- asset_candidates: clips/c12-finale.mp4
 - src: compositions/frames/08-cta.html
-- focal: clips/c10-night-turn.mp4
-- roles: c10-night-turn = background (dimmed ~75% under an ink veil)
+- focal: clips/c12-finale.mp4
+- roles: c12-finale = background (full strength; the sky is part of the footage)
 
-Adapt (logo-assemble-lockup): the wordmark comes to exist letter by letter over the slowly turning room instead of from abstract parts; keep the build-then-lock signature.
-Scene 1 (0.0–1.4s): the night room turning; "Cat Room" assembles letter by letter centered (per-letter staggered rise), display-cover, cream.
-Scene 2 (1.4–2.8s): the coral ✱ spike draws in beside it (`svg-path-draw`); the URL "rooms.krasnoperov.me" types in beneath in coral mono.
-Scene 3 (2.8–5.5s): a small kicker credit line "made with Claude · Blender · makefx" fades in near the bottom of the safe area; everything holds to the last frame.
+Adapt (logo-assemble-lockup, motion borrowed from the installed `logo-brand-close` component): the lockup comes to exist letter by letter in the sky that opens up as the room recedes; keep the build-then-lock signature and end on a dead-still hold.
+Scene 1 (0.0–2.8s): footage only; the room turns (lamps glowing, notes rising from the radio). No type while it turns.
+Scene 2 (2.8–4.6s): as the room recedes and drops, a field of ~70 tiny cream stars fades in across the upper sky, deterministic positions from a seeded hash, each fading in on its own staggered time with a single finite twinkle (opacity 0.3→1→0.6), none in the lower third; the wordmark "Cat Room" cascades letter by letter into a centered lockup in the upper third (the `logo-brand-close` cascade: per-letter fade + rise with a long expo tail while the whole word settles from scale 1.04 to 1), cream, display-cover.
+Scene 3 (4.6–5.6s): the coral ✱ spike arrives last beside the wordmark with a decisive pop (the component's brand-period beat, recoloured to coral); a soft coral glow blooms behind it once and settles.
+Scene 4 (5.6–8.0s): "rooms.krasnoperov.me" settles beneath in wide-tracked JetBrains Mono (letter-spacing easing from 0.5em to 0.18em as it fades in, the component's URL tracking settle), coral; at 6.4s a small kicker "made with Claude · Blender · makefx" fades in near the bottom of the safe area, cream at 70%. Everything holds dead still to the last frame; no exit.
 
-
-End on the invitation. The URL holds to the last frame.
+End on the invitation, in the room's own night sky.

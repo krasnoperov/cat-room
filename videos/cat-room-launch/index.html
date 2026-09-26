@@ -39,11 +39,11 @@
       id="root"
       data-composition-id="main"
       data-start="0"
-      data-duration="41"
+      data-duration="43.5"
       data-width="1920"
       data-height="1080"
     >
-      <audio id="music-bed" class="clip" src="assets/music.mp3" data-start="0" data-duration="41" data-track-index="9000" data-volume="0.9"></audio>
+      <audio id="music-bed" class="clip" src="assets/music.mp3" data-start="0" data-duration="43.5" data-track-index="9000" data-volume="0.9"></audio>
 
       <div
         id="el-01-hook"
@@ -60,8 +60,8 @@
         class="scene"
         data-composition-id="02-intro"
         data-composition-src="compositions/frames/02-intro.html"
-        data-start="4"
-        data-duration="4"
+        data-start="4.5"
+        data-duration="3.5"
         data-track-index="1"
       ></div>
 
@@ -121,23 +121,23 @@
         data-composition-id="08-cta"
         data-composition-src="compositions/frames/08-cta.html"
         data-start="35.5"
-        data-duration="5.5"
+        data-duration="8"
         data-track-index="1"
       ></div>
 
-      <video id="el-01-hook-video-0" src="assets/clips/c02-cat-sunbeam.mp4" data-media-start="0" muted playsinline
+      <video id="hook01-video" src="assets/clips/c00-hook-pullback.mp4" data-media-start="0" muted playsinline
         class="clip"
         style="position:absolute;left:0px;top:0px;width:1920px;height:1080px;object-fit:cover"
         data-start="0"
-        data-duration="4"
+        data-duration="4.5"
         data-track-index="1000"
       ></video>
 
-      <video id="el-02-intro-video-1" src="assets/clips/c01-morning-wide.mp4" data-media-start="0" muted playsinline
+      <video id="el-02-intro-video-1" src="assets/clips/c00-hook-pullback.mp4" data-media-start="4.5" muted playsinline
         class="clip"
         style="position:absolute;left:0px;top:0px;width:1920px;height:1080px;object-fit:cover"
-        data-start="4"
-        data-duration="4"
+        data-start="4.5"
+        data-duration="3.5"
         data-track-index="2000"
       ></video>
 
@@ -148,7 +148,6 @@
         data-duration="5"
         data-track-index="3000"
       ></video>
-
       <video id="el-04-dresser-video-3" src="assets/clips/c11-ui-dresser.mp4" data-media-start="0" muted
         class="clip"
         style="position:absolute;left:0px;top:0px;width:1920px;height:1080px;object-fit:cover"
@@ -156,7 +155,6 @@
         data-duration="5"
         data-track-index="4000"
       ></video>
-
       <video id="el-05-mine-video-1" src="assets/clips/c03-box.mp4" data-media-start="0.6" muted playsinline
         class="clip"
         style="position:absolute;left:0px;top:0px;width:1920px;height:1080px;object-fit:cover"
@@ -164,7 +162,6 @@
         data-duration="2.5"
         data-track-index="5000"
       ></video>
-
       <video id="el-05-mine-video-2" src="assets/clips/c04-yarn.mp4" data-media-start="0.6" muted playsinline
         class="clip"
         style="position:absolute;left:0px;top:0px;width:1920px;height:1080px;object-fit:cover"
@@ -172,7 +169,6 @@
         data-duration="2.5"
         data-track-index="5000"
       ></video>
-
       <video id="el-05-mine-video-3" src="assets/clips/c05-laser.mp4" data-media-start="1.5" muted playsinline
         class="clip"
         style="position:absolute;left:0px;top:0px;width:1920px;height:1080px;object-fit:cover"
@@ -180,36 +176,32 @@
         data-duration="2.5"
         data-track-index="5000"
       ></video>
-
-      <video id="06-world-birds" src="assets/clips/c06-birds.mp4" data-media-start="0" muted playsinline
+      <video id="w06-birds" src="assets/clips/c06-birds.mp4" data-media-start="0" muted playsinline
         class="clip"
         style="position:absolute;left:96px;top:130px;width:846px;height:476px;object-fit:cover"
         data-start="25.5"
         data-duration="5"
         data-track-index="6001"
       ></video>
-
-      <video id="06-world-rain" src="assets/clips/c07-rain.mp4" data-media-start="0" muted playsinline
+      <video id="w06-rain" src="assets/clips/c07-rain.mp4" data-media-start="0" muted playsinline
         class="clip"
         style="position:absolute;left:978px;top:130px;width:846px;height:476px;object-fit:cover"
         data-start="26.7"
         data-duration="3.8"
         data-track-index="6002"
       ></video>
-
-      <video id="07-dusk-footage" src="assets/clips/c08-dusk-radio.mp4" data-media-start="0" muted playsinline
+      <video id="d07-footage" src="assets/clips/c08-dusk-radio.mp4" data-media-start="0" muted playsinline
         class="clip"
         style="position:absolute;left:0px;top:0px;width:1920px;height:1080px;object-fit:cover"
         data-start="30.5"
         data-duration="5"
         data-track-index="7000"
       ></video>
-
-      <video id="el-08-cta-video-7" src="assets/clips/c10-night-turn.mp4" data-media-start="0" muted
+      <video id="el-08-cta-video-7" src="assets/clips/c12-finale.mp4" data-media-start="0" muted playsinline
         class="clip"
         style="position:absolute;left:0px;top:0px;width:1920px;height:1080px;object-fit:cover"
         data-start="35.5"
-        data-duration="5.5"
+        data-duration="8"
         data-track-index="8000"
       ></video>
 
@@ -220,8 +212,6 @@
       window.__timelines["main"] = gsap.timeline({ paused: true });
       // ── frame transitions (injected by transitions.mjs) ──
       (function () { var tl = window.__timelines["main"];
-        tl.to("#el-01-hook", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 4);
-        tl.fromTo("#el-02-intro", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 4);
         tl.to("#el-03-sun", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 13);
         tl.fromTo("#el-04-dresser", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 13);
         tl.to("#el-05-mine", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 25.5);
@@ -230,7 +220,7 @@
         tl.fromTo("#el-07-dusk", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 30.5);
         tl.to("#el-07-dusk", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 35.5);
         tl.fromTo("#el-08-cta", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 35.5);
-        tl.to({}, { duration: 41 }, 0); // full-span anchor — main.duration() == composition total (Studio master duration)
+        tl.to({}, { duration: 43.5 }, 0); // full-span anchor — main.duration() == composition total (Studio master duration)
       })();
     </script>
   </body>

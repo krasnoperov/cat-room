@@ -2,7 +2,15 @@ import { spawn } from 'node:child_process';
 const OUT = 'videos/cat-room-launch/capture/assets/clips';
 const L = "r.move('Lemon tree',1.6,-0.55,0);";
 const cam = (z, x, y, zz) => `r.view.zoom=${z}; r.view.center.set(${x},${y},${zz}); r.resize();`;
+// eased 0..1 over frames [a, b] (smootherstep), written inline into per-frame scripts
+const E = (a, b) => `(()=>{const x=Math.min(1,Math.max(0,(i-${a})/(${b}-${a})));return x*x*x*(x*(x*6-15)+10);})()`;
 const clips = [
+  // the hook: extreme close on the sleeping cat, a miniature's shallow focus, then one long pull back to the whole room
+  ['c00-hook-pullback', 't=16.3&speed=0.015', 240, `const r=window.__room; r.view.zoom=9; r.view.center.set(-1.72,0.66,-0.3); r.resize();`,
+    `const e=${E(55, 215)}; r.view.zoom=9*Math.pow(1.22/9,e); r.view.center.set(-1.72+1.72*e,0.66+0.24*e,-0.3+0.3*e); r.resize(); r.look.tilt=r.look.tiltTarget=0.9*(1-e); r.look.focus=0.5; if(i===28) r.items.find(o=>o.name==='Cat').click();`],
+  // the finale: night, lamps on, the room swings round to its door, then recedes into the sky
+  ['c12-finale', 't=21.9&speed=0.004', 240, `const r=window.__room; r.radio.on=true; r.addProp('floorLamp',{x:1.62,z:-1.15}); r.addProp('catTree',{x:-0.25,z:1.3}); r.addProp('windChime'); r.addProp('candle',{host:'Desk',x:-0.3,y:0.755,z:-0.1}); r.view.zoom=1.3; r.view.center.set(0,0.9,0); r.resize();`,
+    `const l=r.props.find(p=>p.type==='floorLamp'); if(l) l.on=true; const a=(45+62*${E(0, 115)})*Math.PI/180; r.view.angle=r.view.target=a; const e=${E(35, 125)}; r.view.zoom=1.3*Math.pow(0.66/1.3,e); r.view.center.set(0,0.9+1.75*e,0); r.resize();`],
   ['c01-morning-wide', 't=9.3&speed=0.1', 150, `const r=window.__room; ${cam(1.5, 0, 0.9, 0)}`, `r.view.zoom=1.5+i*0.0016; r.resize();`],
   ['c02-cat-sunbeam', 't=16.4&speed=0.02', 150, `const r=window.__room; ${cam(4.6, -1.7, 0.62, -0.3)}`, `if(i===70) r.items.find(o=>o.name==='Cat').click(); r.view.zoom=4.6+i*0.004; r.resize();`],
   ['c03-box', 't=11&speed=0.02', 210, `const r=window.__room; ${L} r.addProp('box',{x:0.35,z:0.55}); r.cat.pos.set(1.25,0,1.3); r.cat.yaw=-2.4; r.cat.state='sit'; r.cat.decideT=1.2; ${cam(3.9, 0.3, 0.12, 0.45)}`, ``],

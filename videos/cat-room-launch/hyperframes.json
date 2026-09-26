@@ -9,5 +9,17 @@
   "media": {
     "autoProxy": true
   },
-  "authoringSkill": "product-launch-video"
+  "authoringSkill": "product-launch-video",
+  "registryItems": [
+    {
+      "name": "logo-brand-close",
+      "type": "hyperframes:component",
+      "target": "compositions/components/logo-brand-close.html"
+    },
+    {
+      "name": "organic-light-leak-overlay",
+      "type": "hyperframes:block",
+      "target": "compositions/organic-light-leak-overlay.html"
+    }
+  ]
 }
