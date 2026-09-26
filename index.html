@@ -3,15 +3,37 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Cat Room</title>
-<meta name="description" content="A small room by a big window. Arrange things, watch the light move, and the cat will find the warm spot.">
-<meta property="og:title" content="Cat Room">
-<meta property="og:description" content="A small room by a big window. Arrange things, watch the light move, and the cat will find the warm spot.">
-<meta property="og:image" content="https://rooms.krasnoperov.me/img/og.jpg">
+<title>Cat Room — a cozy 3D room with a cat and lo-fi radio</title>
+<meta name="description" content="A cozy isometric room by a big window, right in your browser. Arrange the furniture, watch the sun cross the floor, switch on the lo-fi radio, and the cat will find the warm spot.">
+<link rel="canonical" href="https://rooms.krasnoperov.me/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Cat Room">
+<meta property="og:title" content="Cat Room — a cozy 3D room with a cat and lo-fi radio">
+<meta property="og:description" content="A cozy isometric room by a big window, right in your browser. Arrange the furniture, watch the sun cross the floor, switch on the lo-fi radio, and the cat will find the warm spot.">
 <meta property="og:url" content="https://rooms.krasnoperov.me/">
+<meta property="og:image" content="https://rooms.krasnoperov.me/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="An isometric cutaway of a cozy room: an orange cat asleep in the sun by a big window.">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Cat Room — a cozy 3D room with a cat and lo-fi radio">
+<meta name="twitter:description" content="A cozy isometric room by a big window, right in your browser. Arrange the furniture, watch the sun cross the floor, switch on the lo-fi radio, and the cat will find the warm spot.">
+<meta name="twitter:image" content="https://rooms.krasnoperov.me/img/og.jpg">
+<meta name="twitter:image:alt" content="An isometric cutaway of a cozy room: an orange cat asleep in the sun by a big window.">
 <meta name="theme-color" content="#bcd7ee">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E🐈%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" href="/img/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "WebApplication", "name": "Cat Room",
+  "url": "https://rooms.krasnoperov.me/", "image": "https://rooms.krasnoperov.me/img/og.jpg",
+  "description": "A cozy isometric room by a big window, right in your browser. Arrange the furniture, watch the sun cross the floor, switch on the lo-fi radio, and the cat will find the warm spot.",
+  "applicationCategory": "GameApplication", "genre": "Cozy sandbox", "operatingSystem": "Any (web browser with WebGL)",
+  "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+  "author": {"@type": "Person", "name": "Aleksei Krasnoperov"}}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,400&family=Nunito:wght@500;600;700&display=swap">
@@ -29,6 +51,7 @@
     --f-ui: "Nunito", system-ui, sans-serif;
   }
   [hidden] { display: none !important; }
+  .about { position: fixed; left: 28px; right: 28px; top: 140px; max-width: 34rem; font: 500 15px/1.5 var(--f-ui); color: var(--ink); }
   body.night { --ink: #f3ecf6; --ink-2: #c9bfd8; }
   body.night .dock { --ink: #41384d; --ink-2: #6d6479; }
   .brand, .hint { transition: color 1.2s ease, opacity 0.4s ease; }
@@ -237,6 +260,17 @@
   <h1>Cat Room</h1>
   <p>Arrange things, watch the light move. The cat will find the warm spot.</p>
 </div>
+<noscript>
+  <section class="about">
+    <p>Cat Room is a small isometric 3D room by a big window that runs in your browser. It needs JavaScript and WebGL.</p>
+    <ul>
+      <li>The sun walks across the window through the day; at dusk the lantern and the city lights come on.</li>
+      <li>An orange cat naps, follows the warm patch of sunlight, and chases the laser pointer.</li>
+      <li>A lo-fi radio plays tracks that suit the hour, with the sounds of the city and the rain outside.</li>
+      <li>Drag furniture, add plants, books and posters from the dresser, then take a photo or record a whole day as a video.</li>
+    </ul>
+  </section>
+</noscript>
 
 <div class="hint">
   <b>Drag</b> furniture · <b>R</b> turns it<br>
@@ -3689,6 +3723,7 @@ const TRACKS = [
 ];
 const fitsNow = (t) => (weather.rain ? !!t.rain : !t.rain && t.hours && ((clock.h >= t.hours[0] && clock.h < t.hours[1]) || (clock.h + 24 >= t.hours[0] && clock.h + 24 < t.hours[1])));
 const LAYERS = ['amb-city-day', 'amb-city-night', 'amb-rain', 'purr'];
+const media = 'mediaSession' in navigator ? navigator.mediaSession : null;
 const radio = { on: false, ctx: null, el: null, master: null, layers: {}, i: -1, dest: null };
 function buildRadio() {
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -3725,12 +3760,30 @@ function nextTrack() {
   radio.i = choice;
   radio.el.src = TRACKS[choice].src;
   $('trackTitle').textContent = TRACKS[choice].title;
+  mediaTrack();
   if (radio.on) radio.el.play().catch(() => {});
+}
+/* The OS media controls (lock screen, headset keys, browser media hub) show
+   and steer the radio like any other player. */
+function mediaTrack() {
+  if (!media || radio.i < 0) return;
+  media.metadata = new MediaMetadata({
+    title: TRACKS[radio.i].title, artist: 'Cat Room Radio', album: 'Lo-fi from the room',
+    artwork: [192, 512].map((n) => ({ src: `img/icon-${n}.png`, sizes: `${n}x${n}`, type: 'image/png' })),
+  });
+}
+if (media) {
+  const act = (name, fn) => { try { media.setActionHandler(name, fn); } catch { /* action not supported */ } };
+  act('play', () => { if (props.some((p) => p.type === 'radio')) { setRadio(true); rememberRadio(); } });
+  act('pause', () => { setRadio(false); rememberRadio(); });
+  act('stop', () => { setRadio(false); rememberRadio(); });
+  act('nexttrack', () => { if (radio.on) nextTrack(); });
 }
 async function setRadio(on) {
   if (on && !radio.ctx && !buildRadio()) { toast('This browser cannot play the radio'); return; }
   radio.on = on;
   $('radio').hidden = !on;
+  if (media) media.playbackState = on ? 'playing' : 'paused';
   if (on) {
     await radio.ctx.resume();
     if (radio.i < 0) nextTrack(); else radio.el.play().catch(() => {});

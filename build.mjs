@@ -76,7 +76,7 @@ async function models(dir) {
   }
 }
 await models('models');
-await cp('_headers', 'dist/_headers');
+for (const file of ['_headers', 'favicon.ico', 'robots.txt', 'sitemap.xml', 'site.webmanifest']) await cp(file, `dist/${file}`);
 await mkdir('dist/licenses', { recursive: true });
 for (const [name, path] of [
   ['three', 'three/LICENSE'],

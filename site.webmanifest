@@ -1,0 +1,13 @@
+{
+  "name": "Cat Room",
+  "short_name": "Cat Room",
+  "description": "A cozy isometric room by a big window, with a cat and lo-fi radio.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f1e9e2",
+  "theme_color": "#bcd7ee",
+  "icons": [
+    { "src": "/img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/img/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
