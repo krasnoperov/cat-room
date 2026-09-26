@@ -1238,7 +1238,12 @@ new GLTFLoader().load('models/cat.glb', (gltf) => {
     if (o.isBone) { cat.bones[o.name.replace(/[.]/g, '')] = o; cat.rest.set(o, o.quaternion.clone()); }
     if (!o.isMesh) return;
     const n = o.name.toLowerCase();
-    if (n.startsWith('eye')) { o.material = new THREE.MeshBasicMaterial({ color: '#2d2331' }); cat.eyes.push(o); }
+    if (n.startsWith('eye')) {
+      // the iris, pupil and rim are painted in the model; keep them, unlit like ink
+      const src = o.material;
+      o.material = new THREE.MeshBasicMaterial({ map: src.map || null, vertexColors: !!o.geometry.attributes.color, color: src.map || o.geometry.attributes.color ? '#ffffff' : '#2d2331' });
+      cat.eyes.push(o);
+    }
     else if (n.startsWith('glint')) { o.material = new THREE.MeshBasicMaterial({ color: '#ffffff' }); o.userData.glint = true; cat.eyes.push(o); }
     else if (n.startsWith('nose')) o.material = toon('#e98d92');
     else o.material = furMat;
@@ -1276,7 +1281,7 @@ new GLTFLoader().load('models/cat.glb', (gltf) => {
 
 /* fur only where the body turns away from us: a soft fuzzy outline, never grain on
    the flat of the coat, and never over the face */
-const FUR_SHELLS = 6, FUR_LENGTH = 0.007;
+const FUR_SHELLS = 0, FUR_LENGTH = 0.0012;
 function furShellMat(layer) {
   const m = toon('#ffffff', { vertexColors: true });
   m.onBeforeCompile = (sh) => {

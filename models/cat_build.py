@@ -1,141 +1,127 @@
-# Build the cat: one smooth metaball body, vertex colours, eyes and nose,
+# Build the cat: one welded smooth body, vertex colours, eyes and nose,
 # an armature with automatic weights, exported as a skinned GLB.
 # Blender coordinates: X right, -Y forward (the cat looks toward -Y), Z up.
 # The glTF exporter turns -Y into +Z, which is where the room expects the nose.
 #
 #   blender -b --factory-startup -P cat_build.py -- out.glb
 import bpy, bmesh, math, sys
-from mathutils import Vector, Quaternion, Matrix
+from mathutils import Vector
 
 OUT = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else 'cat.glb'
-K = 1 / 0.574  # metaball radius for a visible radius of 1 (measured)
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
+print('Building volumes', flush=True)
 scene = bpy.context.scene
 col = scene.collection
 
 # ---------------------------------------------------------------- body
-mb = bpy.data.metaballs.new('CatBody')
-mb.resolution = 0.0035
-mb.render_resolution = 0.0035
-mb.threshold = 0.6
-body = bpy.data.objects.new('Cat', mb)
-col.objects.link(body)
+# Explicit volumes keep the reference silhouette predictable; voxel union welds
+# them into one surface before heat-weight binding.
+parts = []
+def ell(c, ext):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=40, ring_count=24, radius=1, location=c)
+    o = bpy.context.object
+    o.scale = ext
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    parts.append(o)
+    return o
 
 
-def ell(c, ext, stiff=2.0):
-    e = mb.elements.new(type='ELLIPSOID')
-    m = max(ext)
-    e.co = Vector(c)
-    e.radius = m * K
-    e.size_x, e.size_y, e.size_z = ext[0] / m, ext[1] / m, ext[2] / m
-    e.stiffness = stiff
-    return e
-
-
-def cap(a, b, r, stiff=2.0):
+def cap(a, b, r):
     a, b = Vector(a), Vector(b)
-    e = mb.elements.new(type='CAPSULE')
-    e.co = (a + b) / 2
-    e.radius = r * K
-    e.size_x = (b - a).length / 2
-    e.rotation = Vector((1, 0, 0)).rotation_difference((b - a).normalized())
-    e.stiffness = stiff
-    return e
+    o = ell((a+b)/2, (r, r, (b-a).length/2+r))
+    o.rotation_mode = 'QUATERNION'
+    o.rotation_quaternion = Vector((0,0,1)).rotation_difference((b-a).normalized())
+    return o
 
+# Short loaf torso and a low, generously rounded rump.
+ell((0, .025, .127), (.082, .131, .083))
+ell((0, .095, .125), (.085, .072, .077))
+ell((0, -.073, .143), (.075, .065, .077))
+ell((0, -.116, .133), (.061, .037, .061))
+for x,z in [(-.045,.109),(-.028,.088),(0,.080),(.028,.088),(.045,.109)]:
+    ell((x,-.126,z),(.019,.025,.027))
+# Wide, low face: head itself is almost half the ear-to-floor height.
+ell((0,-.111,.248),(.110,.082,.087))
+ell((0,-.135,.218),(.111,.064,.053))
+for s in (-1,1):
+    for x,z,rx,rz in [(.105,.240,.031,.013),(.114,.218,.031,.015),(.103,.198,.027,.013)]:
+        o=ell((s*x,-.117,z),(rx,.036,rz))
+        o.rotation_euler.y=s*(.15 if z>.23 else .5)
+# Cream muzzle is broad, shallow and continuous with the cheek pads.
+ell((0,-.174,.210),(.080,.029,.032))
+for s in (-1,1):
+    ell((s*.022,-.190,.209),(.030,.018,.020))
+# Straight stubby legs, cream mittens, and plump rear haunches.
+for s in (-1,1):
+    cap((s*.048,-.080,.118),(s*.048,-.080,.030),.033)
+    ell((s*.048,-.091,.020),(.034,.039,.025))
+    ell((s*.057,.095,.092),(.042,.056,.060))
+    cap((s*.053,.092,.085),(s*.053,.092,.026),.025)
+    ell((s*.053,.080,.020),(.030,.036,.022))
+# Curved plume, broad at the rounded tip rather than a tube with a ball cap.
+TAIL = [(0,.157,.132),(0,.199,.149),(0,.227,.179),(0,.236,.211),(.008,.248,.240),(.025,.266,.258)]
+for i in range(5):
+    a,b=Vector(TAIL[i]),Vector(TAIL[i+1])
+    for j in range(5):
+        t=(i+j/5)/5
+        r=.023+.025*math.sin(t*math.pi/2)**2
+        ell(a.lerp(b,j/5),(r,r,r))
+ell(TAIL[-1],(.048,.046,.046))
+for side in (-1,1):
+    ell((side*.032,.240,.226),(.020,.025,.015))
+    ell((.025+side*.034,.266,.260),(.018,.029,.022))
 
-import random
-rnd = random.Random(7)
-# plump body: a loaf with a round rump and a full chest
-ell((0, 0.02, 0.13), (0.084, 0.125, 0.084))
-ell((0, 0.085, 0.125), (0.08, 0.07, 0.082))
-ell((0, -0.07, 0.14), (0.078, 0.07, 0.085))
-# fluffy cream bib: a soft mass with tufts along its lower edge
-ell((0, -0.1, 0.145), (0.062, 0.05, 0.07), 1.6)
-for i in range(7):
-    a = (i - 3) / 3
-    ell((a * 0.045, -0.125 + abs(a) * 0.018, 0.085 + abs(a) * 0.02), (0.016, 0.014, 0.022), 2.4)
-# head: big and round, sitting on the chest with no neck
-ell((0, -0.105, 0.245), (0.094, 0.084, 0.082))
-ell((0, -0.11, 0.285), (0.08, 0.07, 0.05))
-# cheek ruff: round cheeks and tufts poking out sideways
-for s in (-1, 1):
-    ell((s * 0.07, -0.125, 0.215), (0.05, 0.045, 0.04), 1.8)
-    for (dx, dz, sz) in ((0.105, 0.232, 0.019), (0.11, 0.206, 0.02), (0.098, 0.182, 0.017), (0.085, 0.255, 0.015)):
-        ell((s * dx, -0.105, dz), (sz * 1.2, sz * 0.9, sz * 0.8), 2.6)
-# muzzle and chin
-ell((0, -0.18, 0.214), (0.043, 0.028, 0.03))
-ell((0, -0.172, 0.196), (0.03, 0.022, 0.018))
-# short stubby legs with round paws
-for s in (-1, 1):
-    cap((s * 0.046, -0.07, 0.1), (s * 0.046, -0.078, 0.028), 0.026)
-    ell((s * 0.046, -0.088, 0.019), (0.03, 0.036, 0.02))
-    ell((s * 0.056, 0.078, 0.1), (0.044, 0.062, 0.062))
-    cap((s * 0.052, 0.086, 0.08), (s * 0.052, 0.086, 0.028), 0.025)
-    ell((s * 0.052, 0.074, 0.019), (0.03, 0.036, 0.02))
-# a thick fluffy tail that widens toward the tip, rest pose rising behind
-TAIL = [(0, 0.175, 0.135), (0, 0.225, 0.165), (0, 0.262, 0.21), (0, 0.285, 0.262), (0, 0.296, 0.315), (0, 0.3, 0.36)]
-steps = 45
-for i in range(len(TAIL) - 1):
-    a, b = Vector(TAIL[i]), Vector(TAIL[i + 1])
-    n = steps // (len(TAIL) - 1)
-    for k in range(n):
-        t = (i + k / n) / (len(TAIL) - 1)
-        c = a.lerp(b, k / n)
-        ball = mb.elements.new(type='BALL')
-        ball.co = c
-        ball.radius = (0.019 + 0.014 * t * t) * K
-        # fur tufts along the tail
-        if k % 3 == 0 and t > 0.15:
-            j = Vector((rnd.uniform(-1, 1), rnd.uniform(-0.3, 0.3), rnd.uniform(-1, 1))).normalized()
-            tuft = mb.elements.new(type='BALL')
-            tuft.co = c + j * (0.015 + 0.012 * t)
-            tuft.radius = (0.008 + 0.005 * t) * K
-            tuft.stiffness = 2.6
-end = mb.elements.new(type='BALL'); end.co = Vector(TAIL[-1]) + Vector((0, 0.004, 0.01)); end.radius = 0.03 * K
+# Padded triangular ears with round tips. The closed front/back wedge is
+# bevelled before union, preserving a broad base and an outward lean.
+for side in (-1,1):
+    outline=[(.033,.292),(.043,.317),(.099,.370),(.110,.368),(.122,.302),(.099,.280)]
+    verts=[(side*x,y,z) for y in (-.134,-.104) for x,z in outline]
+    verts.extend([(side*.081,-.144,.320),(side*.081,-.098,.320)])
+    faces=[]
+    for j in range(6):
+        k=(j+1)%6
+        faces.extend([(12,j,k),(13,k+6,j+6),(j,j+6,k+6,k)])
+    mesh=bpy.data.meshes.new('EarVolume')
+    mesh.from_pydata(verts,[],faces); mesh.update()
+    o=bpy.data.objects.new('EarVolume',mesh); col.objects.link(o)
+    bm=bmesh.new(); bm.from_mesh(mesh); bmesh.ops.recalc_face_normals(bm,faces=bm.faces); bm.to_mesh(mesh); bm.free()
+    bpy.ops.object.select_all(action='DESELECT');o.select_set(True);bpy.context.view_layer.objects.active=o
+    bevel=o.modifiers.new('Round ear edges','BEVEL');bevel.width=.007;bevel.segments=3
+    bpy.ops.object.modifier_apply(modifier=bevel.name)
+    parts.append(o)
 
-bpy.context.view_layer.objects.active = body
-body.select_set(True)
-bpy.ops.object.convert(target='MESH')
-body = bpy.context.view_layer.objects.active
-body.name = 'Cat'
-
-# ---------------------------------------------------------------- ears
-ears = []
-for s in (-1, 1):
-    bpy.ops.mesh.primitive_cone_add(vertices=40, radius1=0.06, radius2=0.013, depth=0.074, location=(s * 0.066, -0.1, 0.356))
-    ear = bpy.context.active_object
-    ear.scale = (1, 0.48, 1)
-    ear.rotation_euler = (math.radians(-6), math.radians(s * 30), math.radians(s * -4))
-    ears.append(ear)
 bpy.ops.object.select_all(action='DESELECT')
-for o in ears + [body]:
-    o.select_set(True)
-bpy.context.view_layer.objects.active = body
+for o in parts: o.select_set(True)
+body=parts[0]; bpy.context.view_layer.objects.active=body
+print('Joining volumes', flush=True)
 bpy.ops.object.join()
-
-# fuse into one watertight surface, then soften the seams
-rm = body.modifiers.new('Remesh', 'REMESH')
-rm.mode = 'VOXEL'
-rm.voxel_size = 0.0032
-sm = body.modifiers.new('Smooth', 'SMOOTH')
-sm.factor = 0.6
-sm.iterations = 4
-dc = body.modifiers.new('Decimate', 'DECIMATE')
-dc.ratio = 0.45
+body.name='Cat'
+bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+rm=body.modifiers.new('Weld silhouette','REMESH'); rm.mode='VOXEL'; rm.voxel_size=.0018
+sm=body.modifiers.new('Soft fur volumes','SMOOTH'); sm.factor=.9; sm.iterations=16
 for m in list(body.modifiers):
+    print('Applying',m.name, flush=True)
     bpy.ops.object.modifier_apply(modifier=m.name)
+dc=body.modifiers.new('Export budget','DECIMATE'); dc.ratio=min(1.,17500/len(body.data.polygons))
+bpy.ops.object.modifier_apply(modifier=dc.name)
+# Floor-aligned paws, without changing the bone-space origin.
+for v in body.data.vertices: v.co.z=max(0,v.co.z)
 bpy.ops.object.shade_smooth()
-me = body.data
-print('cat faces', len(me.polygons), 'verts', len(me.vertices))
+me=body.data
+print('cat faces',len(me.polygons),'verts',len(me.vertices))
 
 # ---------------------------------------------------------------- colours
-GINGER = (0.93, 0.62, 0.35, 1)
-CREAM = (0.99, 0.93, 0.82, 1)
-STRIPE = (0.84, 0.48, 0.23, 1)
-PINK = (0.96, 0.66, 0.64, 1)
-BLUSH = (0.97, 0.63, 0.55, 1)
-MOUTH = (0.45, 0.27, 0.24, 1)
+def rgba(hexcolour):
+    # Blender / COLOR_0 store linear light, while the art palette is sRGB.
+    rgb=[int(hexcolour[i:i+2],16)/255 for i in (0,2,4)]
+    return tuple(v/12.92 if v<=.04045 else ((v+.055)/1.055)**2.4 for v in rgb)+(1,)
+GINGER = rgba('E8A45E')
+CREAM = rgba('FFF0CA')
+STRIPE = rgba('C17C43')
+PINK = rgba('EB9C96')
+BLUSH = rgba('EE927B')
+MOUTH = rgba('79452F')
 attr = me.color_attributes.new(name='Col', type='BYTE_COLOR', domain='POINT')
 me.color_attributes.active_color = attr
 tail_len = sum((Vector(TAIL[i + 1]) - Vector(TAIL[i])).length for i in range(len(TAIL) - 1))
@@ -158,36 +144,55 @@ def mix(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(4))
 
 
-for v in me.vertices:
-    p, n = v.co, v.normal
-    c = GINGER
-    dtail, tt = tail_param(p)
-    on_tail = p.y > 0.16 and dtail < 0.055
-    on_head = p.z > 0.17 and p.y < -0.03 and not on_tail
+def softedge(distance, width=.003):
+    return max(0.,min(1.,.5-distance/width))
+
+vertex_samples=[(v.index,v.co.copy(),v.normal.copy()) for v in me.vertices]
+for index,p,n in vertex_samples:
+    c=GINGER
+    dtail,tt=tail_param(p)
+    on_tail=p.y>.156 and dtail<.053
+    on_head=p.z>.177 and p.y<-.046 and not on_tail
     if on_tail:
-        c = STRIPE if math.sin(tt * 30 + 1.2) > 0.3 else GINGER
-    elif p.z < 0.034:
-        c = CREAM  # paws
+        band=math.sin(tt*26+1.)
+        c=mix(GINGER,STRIPE,softedge(.28-band,.23))
+    elif p.z<.036:
+        c=mix(GINGER,CREAM,softedge(p.z-.030,.008))
     elif on_head:
-        front = n.y < -0.35
-        if p.z > 0.335 and n.y < -0.45 and abs(p.x) > 0.04:
-            c = PINK  # inner ears
-        elif front and p.z < 0.232 and abs(p.x) < 0.075:
-            c = CREAM  # lower face, muzzle and chin
-        elif p.z > 0.27 and n.y < 0.2 and abs(p.x) < 0.04 and math.cos(p.x * 150) > 0.62:
-            c = STRIPE  # forehead stripes
-        if front and 0.2 < p.z < 0.245:
-            bl = ((abs(p.x) - 0.064) ** 2 / 0.018 ** 2 + (p.z - 0.222) ** 2 / 0.012 ** 2)
-            if bl < 1:
-                c = mix(c, BLUSH, 0.85 * (1 - bl))
+        # Broad cream lower face with a rounded rather than horizontal border.
+        border=.237-.016*(abs(p.x)/.095)**2
+        if p.y<-.143:
+            c=mix(c,CREAM,softedge(p.z-border,.006))
+        # Three tapered marks follow the forehead and stop above the eyes.
+        if p.z>.266 and p.y<-.122:
+            for mid,end,width in [(0,.268,.010),(-.033,.280,.007),(.033,.280,.007)]:
+                taper=min(1.,max(0.,(p.z-end)/.033))**.45
+                d=abs(p.x-mid)-width*taper
+                c=mix(c,STRIPE,softedge(d,.007)*softedge(end-p.z,.008))
+        brow=((abs(p.x)-.040)/.008)**2+((p.z-.280)/.006)**2
+        if p.y<-.167: c=mix(c,CREAM,softedge(brow-.9,.35))
+        # Pink stays inside a triangular ginger border, with a cream base tuft.
+        x=abs(p.x); z=p.z
+        ear_left=.050+.73*(z-.315)
+        ear_right=.107-.18*(z-.315)
+        if z>.308 and z<.354 and p.y<-.112:
+            mask=softedge(max(ear_left-x,x-ear_right,.313-z,z-.354),.004)
+            c=mix(c,PINK,mask)
+        tuft=((x-.065)/.017)**2+((z-.311)/.009)**2
+        if p.y<-.135: c=mix(c,CREAM,softedge(tuft-.85,.45))
+        if p.y<-.173:
+            blush=((abs(p.x)-.074)/.019)**2+((p.z-.223)/.012)**2
+            c=mix(c,BLUSH,softedge(blush-.86,.34)*.9)
     else:
-        bib = p.y < -0.06 and n.y < -0.15 and abs(p.x) < 0.06 and p.z < 0.2
-        belly = n.z < -0.4 and p.z < 0.12
-        if bib or belly:
-            c = CREAM
-        elif n.z > -0.35 and p.z > 0.05 and math.sin(p.y * 70 + math.sin(p.x * 25) * 0.9) > 0.5:
-            c = STRIPE  # soft bands across the back, flanks and legs
-    attr.data[v.index].color = c
+        bib=p.y<-.103 and abs(p.x)<.063 and p.z<.20
+        belly=n.z<-.3 and p.z<.096
+        if bib or belly: c=CREAM
+        else:
+            # Arched transverse bands with softly feathered painted edges.
+            phase=p.y*68+1.1*math.cos(p.x*24)+.8*p.z/.15
+            stripe=softedge(.56-math.sin(phase),.48)
+            c=mix(c,STRIPE,stripe)
+    attr.data[index].color=c
 
 mat = bpy.data.materials.new('CatFur')
 mat.use_nodes = True
@@ -225,13 +230,13 @@ bone('neck', (0, -0.09, 0.18), (0, -0.1, 0.205), 'chest', True)
 bone('head', (0, -0.1, 0.205), (0, -0.115, 0.32), 'neck', True)
 for s, sd in ((-1, 'R'), (1, 'L')):
     x = s * 0.046
-    bone(f'upperarm.{sd}', (x, -0.068, 0.12), (x, -0.074, 0.07), 'chest')
-    bone(f'forearm.{sd}', (x, -0.074, 0.07), (x, -0.08, 0.022), f'upperarm.{sd}', True)
+    bone(f'upperarm.{sd}', (x, -0.080, 0.12), (x, -0.080, 0.07), 'chest')
+    bone(f'forearm.{sd}', (x, -0.080, 0.07), (x, -0.08, 0.022), f'upperarm.{sd}', True)
     bone(f'hand.{sd}', (x, -0.08, 0.022), (x, -0.108, 0.018), f'forearm.{sd}', True)
     x = s * 0.052
-    bone(f'thigh.{sd}', (x, 0.08, 0.12), (x, 0.076, 0.07), 'pelvis')
-    bone(f'shin.{sd}', (x, 0.076, 0.07), (x, 0.086, 0.022), f'thigh.{sd}', True)
-    bone(f'foot.{sd}', (x, 0.086, 0.022), (x, 0.06, 0.018), f'shin.{sd}', True)
+    bone(f'thigh.{sd}', (x, 0.092, 0.12), (x, 0.092, 0.07), 'pelvis')
+    bone(f'shin.{sd}', (x, 0.092, 0.07), (x, 0.092, 0.022), f'thigh.{sd}', True)
+    bone(f'foot.{sd}', (x, 0.092, 0.022), (x, 0.06, 0.018), f'shin.{sd}', True)
 prev = 'pelvis'
 for i in range(len(TAIL) - 1):
     bone(f'tail{i}', TAIL[i], TAIL[i + 1], prev, i > 0)
@@ -243,8 +248,10 @@ body.select_set(True)
 rig.select_set(True)
 bpy.context.view_layer.objects.active = rig
 bpy.ops.object.parent_set(type='ARMATURE_AUTO')
-unweighted = sum(1 for v in me.vertices if not v.groups)
+unweighted = sum(1 for v in me.vertices if sum(g.weight for g in v.groups) < 1e-6)
 print('unweighted verts', unweighted)
+assert unweighted == 0, 'Every body vertex must be bound'
+assert len(me.polygons) < 45000, 'Body exceeds the face budget'
 
 # ---------------------------------------------------------------- eyes and nose on the head bone
 bpy.context.view_layer.update()
@@ -279,19 +286,67 @@ def rigid(name, mesh_fn, loc, nrm, embed, color, scale):
     return o
 
 
-for s, sd in ((-1, 'R'), (1, 'L')):
-    loc, nrm = surface((s * 0.05, -0.4, 0.25), (0, 1, 0))
-    rigid(f'eye.{sd}', lambda: bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=16, radius=1),
-          loc, nrm, 0.004, (0.2, 0.1, 0.05, 1), (0.026, 0.03, 0.011))
-    hl = surface((s * 0.043, -0.4, 0.262), (0, 1, 0))
-    rigid(f'glint.{sd}', lambda: bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=1),
-          hl[0], hl[1], -0.0075, (1, 1, 1, 1), (0.0085, 0.0085, 0.003))
-    hl2 = surface((s * 0.057, -0.4, 0.24), (0, 1, 0))
-    rigid(f'glint2.{sd}', lambda: bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=6, radius=1),
-          hl2[0], hl2[1], -0.0075, (1, 1, 1, 1), (0.0038, 0.0038, 0.0018))
-loc, nrm = surface((0, -0.4, 0.218), (0, 1, 0.05))
-rigid('nose', lambda: bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=10, radius=1),
-      loc, nrm, 0.001, (0.93, 0.55, 0.57, 1), (0.009, 0.0065, 0.005))
+def sphere():
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=48,ring_count=32,radius=1)
+
+for side,sd in ((-1,'R'),(1,'L')):
+    loc,nrm=surface((side*.049,-.4,.248),(0,1,0))
+    eye=rigid(f'eye.{sd}',sphere,loc,nrm,.003,rgba('FFFFFF'),(.028,.031,.012))
+    # A single coloured eye surface keeps iris and pupil together during blink.
+    ec=eye.data.color_attributes.new(name='Col',type='BYTE_COLOR',domain='POINT')
+    eye.data.color_attributes.active_color=ec
+    for v in eye.data.vertices:
+        x,y,z=v.co
+        edge=(x*x+y*y)**.5
+        c=mix(rgba('C58A43'),rgba('633126'),min(1.,max(0.,(y+.5)/1.2)))
+        pupil=((x+.04)/.52)**2+((y-.28)/.62)**2
+        c=mix(c,rgba('391F20'),softedge(pupil-1.,.18))
+        c=mix(c,rgba('603426'),softedge(.88-edge,.04))
+        ec.data[v.index].color=c
+    mat=eye.data.materials[0]; vc=mat.node_tree.nodes.new('ShaderNodeVertexColor');vc.layer_name='Col'
+    mat.node_tree.links.new(vc.outputs['Color'],mat.node_tree.nodes['Principled BSDF'].inputs['Base Color'])
+    rotation=Vector((0,0,1)).rotation_difference(nrm)
+    for number,offset,r in [(1,(-.007,.010,.009),.006),(2,(.008,-.011,.010),.0027)]:
+        at=loc+rotation@Vector(offset)
+        rigid(f'glint{number}.{sd}',lambda: bpy.ops.mesh.primitive_uv_sphere_add(segments=16,ring_count=10,radius=1),at,nrm,0,rgba('FFFFFF'),(r,r,.002))
+loc,nrm=surface((0,-.4,.217),(0,1,0))
+nose=rigid('nose',lambda: bpy.ops.mesh.primitive_uv_sphere_add(segments=24,ring_count=16,radius=1),loc,nrm,-.001,rgba('E79391'),(.007,.005,.004))
+# A softly triangular button nose, broad at the top.
+for v in nose.data.vertices:
+    v.co.x*=.72+.28*(v.co.y+1)/2
+
+# Fine muzzle strokes join the body mesh with full head weights, so the
+# only rigid attachments are the eyes, highlights and nose.
+face_strokes = []
+def stroke(name,points,radius,colour):
+    curve=bpy.data.curves.new(name,'CURVE');curve.dimensions='3D';curve.bevel_depth=radius;curve.bevel_resolution=3
+    sp=curve.splines.new('BEZIER');sp.bezier_points.add(len(points)-1)
+    for bp,(x,z) in zip(sp.bezier_points,points):
+        loc,nrm=surface((x,-.4,z),(0,1,0))
+        bp.co=loc+nrm*.001;bp.handle_left_type='AUTO';bp.handle_right_type='AUTO'
+    o=bpy.data.objects.new(name,curve);col.objects.link(o)
+    bpy.ops.object.select_all(action='DESELECT');o.select_set(True);bpy.context.view_layer.objects.active=o
+    bpy.ops.object.convert(target='MESH');o=bpy.context.object
+    attr=o.data.color_attributes.new(name='Col',type='BYTE_COLOR',domain='POINT');o.data.color_attributes.active_color=attr
+    for item in attr.data:item.color=colour
+    o.data.materials.append(mat_fur)
+    vg=o.vertex_groups.new(name='head');vg.add(list(range(len(o.data.vertices))),1.,'REPLACE')
+    face_strokes.append(o)
+    return o
+mat_fur=body.data.materials[0]
+stroke('muzzle.philtrum',[(0,.214),(0,.207),(0,.204)],.0009,MOUTH)
+for side in (-1,1):
+    stroke('muzzle.smile',[(0,.205),(side*.007,.200),(side*.014,.201),(side*.019,.205)],.001,MOUTH)
+
+bpy.ops.object.select_all(action='DESELECT')
+for o in face_strokes+[body]: o.select_set(True)
+bpy.context.view_layer.objects.active=body
+bpy.ops.object.join()
+me=body.data
+assert all(sum(g.weight for g in v.groups)>1e-6 for v in me.vertices)
+me.calc_loop_triangles()
+print('Final skinned triangles',len(me.loop_triangles))
+assert len(me.loop_triangles)<45000
 
 # ---------------------------------------------------------------- export
 bpy.ops.object.select_all(action='SELECT')
