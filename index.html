@@ -1774,6 +1774,7 @@ function keepCatOut() {
   const fx = Math.sin(cat.yaw), fz = Math.cos(cat.yaw), r = 0.1;
   for (let pass = 0; pass < 2; pass++) for (const o of items) {
     if (!o.blocks || !(o.kind === 'floor' || o === seatItem)) continue;
+    if (o.prop && o.prop === cat.spot?.owner) continue; // the thing it is climbing into or onto
     if (cat.pos.y >= (o.h ?? 0.8) - 0.04) continue; // standing on it
     if ((o.h ?? 0.8) < 0.1) continue; // bowls: it leans over them to eat
     const f = footprint(o);
@@ -1872,7 +1873,8 @@ function stepCat(dt, time) {
     if (cat.decideT <= 0) { cat.decideT = 2.5; if (!perched.length) decide(); }
     return;
   }
-  if (cat.state === 'sit' && cat.stateT > 2.2 && !cat.hungry) { cat.state = 'sleep'; cat.stateT = 0; }
+  // in a box it sits and peeks out; anywhere else it dozes off
+  if (cat.state === 'sit' && cat.stateT > 2.2 && !cat.hungry && !cat.inBox) { cat.state = 'sleep'; cat.stateT = 0; }
   cat.decideT -= dt;
   if (cat.decideT <= 0) {
     cat.decideT = 2.5;
@@ -2738,8 +2740,8 @@ PROP_CLICK.easel = (pr) => { paintRoom(pr); };
 const laser = { on: false, target: null, visible: false, hunt: 0, boredUntil: 0 };
 const laserDot = noInk(new THREE.Group());
 {
-  const core = new THREE.Mesh(new THREE.CircleGeometry(0.012, 20), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 0.3, 0.3), depthWrite: false }));
-  const halo = new THREE.Mesh(new THREE.CircleGeometry(0.04, 24), new THREE.MeshBasicMaterial({ map: steamTex, color: '#ff4a4a', transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const core = new THREE.Mesh(new THREE.CircleGeometry(0.017, 20), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 0.3, 0.3), depthWrite: false }));
+  const halo = new THREE.Mesh(new THREE.CircleGeometry(0.065, 24), new THREE.MeshBasicMaterial({ map: steamTex, color: '#ff4a4a', transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending }));
   core.rotation.x = halo.rotation.x = -Math.PI / 2;
   halo.position.y = 0.001;
   laserDot.add(core, halo);
@@ -3627,7 +3629,7 @@ function armRadio() {
 }
 $('nextTrack').addEventListener('click', nextTrack);
 function stepAudio() {
-  if (!radio.on) return;
+  if (!radio.on || !radio.ctx) return;
   const t = radio.ctx.currentTime, open = windowState.k, clear = 1 - weather.k;
   const to = (name, v) => radio.layers[name]?.gain.setTargetAtTime(v, t, 0.8);
   to('amb-city-day', 0.55 * open * (1 - sun.night) * clear);

@@ -1,0 +1,184 @@
+<template>
+  <div id="root" data-composition-id="08-cta" data-width="1920" data-height="1080" data-duration="5.5">
+    <style>
+      @font-face { font-family: "Fraunces"; src: url("assets/fonts/fraunces-normal-latin.woff2") format("woff2"); font-weight: 100 900; font-style: normal; }
+      @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-400.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+      @font-face { font-family: "JetBrains Mono"; src: url("assets/fonts/JetBrainsMono-700.woff2") format("woff2"); font-weight: 700; font-style: normal; }
+
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        container-type: size;
+      }
+      #root .\30 8-cta-veil {
+        position: absolute;
+        inset: 0;
+        background: rgba(65, 56, 77, 0.25); /* ink veil: the night room reads at ~75% */
+      }
+      #root .\30 8-cta-stage {
+        position: absolute;
+        inset: 0;
+      }
+      #root .\30 8-cta-lockup {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 296px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        transform-origin: 50% 40%;
+      }
+      #root .\30 8-cta-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 1.1cqw;
+      }
+      #root .\30 8-cta-word {
+        font-family: "Fraunces", Georgia, serif;
+        font-weight: 400;
+        font-size: 9.9cqw;
+        line-height: 0.98;
+        letter-spacing: -0.028em;
+        color: #FFFAF3;
+        white-space: pre;
+        margin: 0;
+      }
+      #root .\30 8-cta-letter {
+        display: inline-block;
+        will-change: transform, opacity;
+      }
+      #root .\30 8-cta-spike {
+        width: 5.2cqw;
+        height: 5.2cqw;
+        margin-top: 1.4cqw;
+        overflow: visible;
+      }
+      #root .\30 8-cta-spike line {
+        fill: none;
+        stroke: #E0894A;
+        stroke-width: 13;
+        stroke-linecap: round;
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+      }
+      #root .\30 8-cta-url {
+        margin-top: 2.3cqw;
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 400;
+        font-size: 2.5cqw;
+        letter-spacing: 0.02em;
+        line-height: 1;
+        color: #E0894A;
+        white-space: pre;
+        display: flex;
+        align-items: center;
+      }
+      #root .\30 8-cta-char { opacity: 0; }
+      #root .\30 8-cta-caret {
+        display: inline-block;
+        width: 0.12em;
+        height: 1.05em;
+        margin-left: 0.08em;
+        background: #E0894A;
+        opacity: 0;
+      }
+      #root .\30 8-cta-credit {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 832px;
+        text-align: center;
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 400;
+        font-size: 26px;
+        letter-spacing: 0.08em;
+        line-height: 1;
+        color: #FFFAF3;
+        white-space: pre;
+      }
+    </style>
+
+    <!-- approved frame video hoisted by assemble-index -->
+
+    <div class="clip 08-cta-veil" data-start="0" data-duration="5.5" data-track-index="1"></div>
+
+    <div class="clip 08-cta-stage" data-start="0" data-duration="5.5" data-track-index="2">
+      <div class="08-cta-lockup">
+        <div class="08-cta-row">
+          <h1 class="08-cta-word" aria-label="Cat Room"><span class="08-cta-letter">C</span><span class="08-cta-letter">a</span><span class="08-cta-letter">t</span><span class="08-cta-letter"> </span><span class="08-cta-letter">R</span><span class="08-cta-letter">o</span><span class="08-cta-letter">o</span><span class="08-cta-letter">m</span></h1>
+          <svg class="08-cta-spike" viewBox="0 0 100 100" aria-hidden="true">
+            <line x1="50" y1="50" x2="50" y2="8" pathLength="1" />
+            <line x1="50" y1="50" x2="79.7" y2="20.3" pathLength="1" />
+            <line x1="50" y1="50" x2="92" y2="50" pathLength="1" />
+            <line x1="50" y1="50" x2="79.7" y2="79.7" pathLength="1" />
+            <line x1="50" y1="50" x2="50" y2="92" pathLength="1" />
+            <line x1="50" y1="50" x2="20.3" y2="79.7" pathLength="1" />
+            <line x1="50" y1="50" x2="8" y2="50" pathLength="1" />
+            <line x1="50" y1="50" x2="20.3" y2="20.3" pathLength="1" />
+          </svg>
+        </div>
+        <div class="08-cta-url" aria-label="rooms.krasnoperov.me"><span class="08-cta-char">r</span><span class="08-cta-char">o</span><span class="08-cta-char">o</span><span class="08-cta-char">m</span><span class="08-cta-char">s</span><span class="08-cta-char">.</span><span class="08-cta-char">k</span><span class="08-cta-char">r</span><span class="08-cta-char">a</span><span class="08-cta-char">s</span><span class="08-cta-char">n</span><span class="08-cta-char">o</span><span class="08-cta-char">p</span><span class="08-cta-char">e</span><span class="08-cta-char">r</span><span class="08-cta-char">o</span><span class="08-cta-char">v</span><span class="08-cta-char">.</span><span class="08-cta-char">m</span><span class="08-cta-char">e</span><span class="08-cta-caret"></span></div>
+      </div>
+      <p class="08-cta-credit">made with Claude · Blender · makefx</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <script>
+      (function () {
+        var FRAME = "08-cta";
+        var DURATION = 5.5;
+        var root = document.querySelector('[data-composition-id="' + FRAME + '"]');
+        var q = function (cls) { return Array.prototype.slice.call(root.querySelectorAll('[class~="' + cls + '"]')); };
+
+        var letters = q("08-cta-letter");
+        var lockup = q("08-cta-lockup");
+        var spike = q("08-cta-spike");
+        var spokes = Array.prototype.slice.call(spike[0].querySelectorAll("line"));
+        var chars = q("08-cta-char");
+        var caret = q("08-cta-caret");
+        var credit = q("08-cta-credit");
+
+        var tl = gsap.timeline({ paused: true });
+
+        // Life in the hold: the whole lockup creeps up in scale across the frame.
+        tl.fromTo(lockup, { scale: 0.985 }, { scale: 1.015, duration: DURATION, ease: "none" }, 0);
+
+        // Scene 1 (0.0–1.4s): "Cat Room" assembles letter by letter, per-letter staggered rise.
+        tl.fromTo(letters,
+          { opacity: 0, y: 70 },
+          { opacity: 1, y: 0, duration: 0.6, ease: "power3.out", stagger: 0.1 },
+          0.12);
+
+        // Scene 2 (1.4–2.8s): the coral spike draws in beside the wordmark (svg-path-draw, spokes from center).
+        tl.fromTo(spike, { opacity: 0, scale: 0.92, transformOrigin: "50% 50%" },
+          { opacity: 1, scale: 1, duration: 0.7, ease: "power1.out" }, 1.4);
+        spokes.forEach(function (s, i) {
+          tl.fromTo(s, { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.34, ease: "power2.out" }, 1.42 + i * 0.06);
+        });
+
+        // Scene 2: the URL types in beneath in coral mono.
+        var TYPE_START = 1.95, PER_CHAR = 0.042;
+        tl.set(caret, { opacity: 1 }, TYPE_START - 0.08);
+        chars.forEach(function (c, i) {
+          tl.set(c, { opacity: 1 }, TYPE_START + i * PER_CHAR);
+        });
+        var typedEnd = TYPE_START + chars.length * PER_CHAR;
+        // Two deterministic caret blinks, then it retires so the URL holds clean.
+        tl.set(caret, { opacity: 0 }, typedEnd + 0.25);
+        tl.set(caret, { opacity: 1 }, typedEnd + 0.5);
+        tl.set(caret, { opacity: 0 }, typedEnd + 0.75);
+
+        // Scene 3 (2.8–5.5s): the small credit line fades in near the bottom of the safe area; all holds.
+        tl.fromTo(credit, { opacity: 0, y: 14 }, { opacity: 0.78, y: 0, duration: 0.7, ease: "power1.out" }, 2.9);
+
+        tl.set({}, {}, DURATION);
+
+        window.__timelines = window.__timelines || {};
+        window.__timelines[FRAME] = tl;
+      })();
+    </script>
+  </div>
+</template>

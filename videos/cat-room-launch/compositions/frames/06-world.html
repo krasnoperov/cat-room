@@ -1,0 +1,70 @@
+<template id="06-world-template">
+  <div id="root" data-composition-id="06-world" data-start="0" data-duration="5.5" data-width="1920" data-height="1080">
+    <style>
+      @font-face { font-family: "Fraunces"; src: url("assets/fonts/fraunces-normal-latin.woff2") format("woff2"); font-style: normal; font-weight: 100 900; }
+      @font-face { font-family: "Fraunces"; src: url("assets/fonts/fraunces-italic-latin.woff2") format("woff2"); font-style: italic; font-weight: 100 900; }
+      #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+      .w06-ground {
+        position: absolute; inset: 0; background: #FFFAF3;
+        /* cream field with the two video slots cut out, so the hoisted videos read through at any stacking order */
+        clip-path: path(evenodd, "M0 0 H1920 V1080 H0 Z M108 130 H930 A12 12 0 0 1 942 142 V594 A12 12 0 0 1 930 606 H108 A12 12 0 0 1 96 594 V142 A12 12 0 0 1 108 130 Z M990 130 H1812 A12 12 0 0 1 1824 142 V594 A12 12 0 0 1 1812 606 H990 A12 12 0 0 1 978 594 V142 A12 12 0 0 1 990 130 Z");
+      }
+      .w06-stage { position: absolute; inset: 0; container-type: size; pointer-events: none; }
+      .w06-card {
+        position: absolute; top: 129px; width: 848px; height: 478px; box-sizing: border-box;
+        border: 1px solid rgba(65, 56, 77, 0.12); border-radius: 12px; background: transparent;
+        box-shadow: 0 1px 3px rgba(65, 56, 77, 0.08), 0 4px 16px rgba(65, 56, 77, 0.04);
+      }
+      .w06-card-left { left: 95px; }
+      .w06-card-right { left: 977px; }
+      .w06-caption {
+        position: absolute; top: 648px; margin: 0; white-space: nowrap;
+        font-family: "Fraunces", serif; font-style: italic; font-weight: 400;
+        font-size: 6.7cqw; line-height: 1.05; letter-spacing: -0.012em; color: #41384D;
+      }
+      .w06-caption-left { left: 96px; }
+      .w06-caption-right { left: 978px; }
+      .w06-word { display: inline-block; will-change: transform, opacity; }
+    </style>
+
+    <div id="06-world-ground" class="clip w06-ground" data-start="0" data-duration="5.5" data-track-index="0"></div>
+
+    <!-- approved frame video hoisted by assemble-index -->
+
+    <!-- approved frame video hoisted by assemble-index -->
+
+    <div id="06-world-stage" class="clip w06-stage" data-start="0" data-duration="5.5" data-track-index="3">
+      <div id="06-world-card-left" class="w06-card w06-card-left"></div>
+      <div id="06-world-card-right" class="w06-card w06-card-right"></div>
+      <p id="06-world-cap-left" class="w06-caption w06-caption-left"><span class="w06-word">Birds</span> <span class="w06-word">drop</span> <span class="w06-word">by.</span></p>
+      <p id="06-world-cap-right" class="w06-caption w06-caption-right"><span class="w06-word">Rain</span> <span class="w06-word">rolls</span> <span class="w06-word">in.</span></p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      (function () {
+        window.__timelines = window.__timelines || {};
+        var tl = gsap.timeline({ paused: true });
+
+        // Scene 1 (0.0–1.2s): left card frame draws in around the live birds clip
+        tl.fromTo("[id=\"06-world-card-left\"]", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" }, 0.1);
+
+        // Scene 2 (1.2–2.4s): right card frame draws in as the rain clip starts
+        tl.fromTo("[id=\"06-world-card-right\"]", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" }, 1.2);
+
+        // Scene 3 (2.4–5.0s): per-word staggered captions, then hold
+        tl.fromTo("[id=\"06-world-cap-left\"] .w06-word",
+          { y: 36, opacity: 0, filter: "blur(6px)" },
+          { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.6, ease: "power3.out", stagger: 0.09 }, 2.4);
+        tl.fromTo("[id=\"06-world-cap-right\"] .w06-word",
+          { y: 36, opacity: 0, filter: "blur(6px)" },
+          { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.6, ease: "power3.out", stagger: 0.09 }, 3.2);
+
+        // hold to the frame's full length
+        tl.set({}, {}, 5);
+
+        window.__timelines["06-world"] = tl;
+      })();
+    </script>
+  </div>
+</template>

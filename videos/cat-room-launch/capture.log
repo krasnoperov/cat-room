@@ -1,0 +1,85 @@
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"browser","status":"started","remainingMs":null}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"browser","status":"completed","remainingMs":null}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"navigation","status":"started","remainingMs":null}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"navigation","status":"completed","remainingMs":null}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"core-extraction","status":"started","remainingMs":null}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"core-extraction","status":"completed","remainingMs":94167}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"fonts","status":"started","remainingMs":94166}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"fonts","status":"completed","remainingMs":94166}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"assets","status":"started","remainingMs":94165}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"assets","status":"completed","remainingMs":94005}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"vision","status":"started","remainingMs":93995}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"vision","status":"completed","remainingMs":93994}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"contact-sheets","status":"started","remainingMs":93993}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"contact-sheets","status":"completed","remainingMs":93868}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"scaffold","status":"started","remainingMs":93868}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"scaffold","status":"completed","remainingMs":93866}
+HYPERFRAMES_CAPTURE_PHASE {"schema":"hyperframes.capture.phase.v1","phase":"complete","status":"completed","remainingMs":93866}
+{
+  "ok": true,
+  "projectDir": "/home/alv/projects/cat-room/videos/cat-room-launch/capture",
+  "url": "https://rooms.krasnoperov.me",
+  "httpStatus": 200,
+  "title": "Cat Room",
+  "screenshots": 2,
+  "assets": 6,
+  "dropped": {
+    "size-floor": 11,
+    "budget-exhausted": 0,
+    "cap-reached": 0,
+    "unavailable": 1
+  },
+  "detectedSections": 0,
+  "fonts": [
+    "Fraunces",
+    "Nunito",
+    "Arial"
+  ],
+  "fontsDetailed": [
+    {
+      "family": "Fraunces",
+      "weights": [
+        400,
+        500
+      ],
+      "variable": false
+    },
+    {
+      "family": "Nunito",
+      "weights": [
+        400,
+        600,
+        700,
+        900
+      ],
+      "variable": true,
+      "weightRange": [
+        500,
+        700
+      ]
+    },
+    {
+      "family": "Arial",
+      "weights": [
+        400
+      ],
+      "variable": false
+    }
+  ],
+  "animations": {
+    "webAnimations": 4,
+    "cssDeclarations": 10,
+    "scrollTargets": 0,
+    "cdpAnimations": 4,
+    "canvases": 1
+  },
+  "warnings": [
+    "12 referenced asset(s) are not in this capture (11 size-floor, 1 unavailable). A thin capture with no drops is a thin page; this one was truncated."
+  ],
+  "lastPhase": {
+    "schema": "hyperframes.capture.phase.v1",
+    "phase": "complete",
+    "status": "completed",
+    "remainingMs": 93866
+  }
+}

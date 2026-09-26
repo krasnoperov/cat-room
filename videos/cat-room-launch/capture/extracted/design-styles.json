@@ -1,0 +1,181 @@
+{
+  "typography": [
+    {
+      "role": "display",
+      "fontFamily": "Fraunces",
+      "fontSize": "30px",
+      "fontWeight": "500",
+      "lineHeight": "31.5px",
+      "letterSpacing": "-0.3px",
+      "color": "#41384D",
+      "sampleText": "Cat Room"
+    },
+    {
+      "role": "heading",
+      "fontFamily": "Fraunces",
+      "fontSize": "19px",
+      "fontWeight": "500",
+      "lineHeight": "21.85px",
+      "letterSpacing": "normal",
+      "color": "#41384D",
+      "sampleText": "The dresser"
+    },
+    {
+      "role": "body",
+      "fontFamily": "Fraunces",
+      "fontSize": "15px",
+      "fontWeight": "400",
+      "lineHeight": "21px",
+      "letterSpacing": "normal",
+      "color": "#6D6479",
+      "sampleText": "Arrange things, watch the light move. The cat will find the "
+    },
+    {
+      "role": "label",
+      "fontFamily": "Nunito",
+      "fontSize": "12px",
+      "fontWeight": "600",
+      "lineHeight": "12px",
+      "letterSpacing": "normal",
+      "color": "#6D6479",
+      "sampleText": "Walls"
+    }
+  ],
+  "spacing": {
+    "observed": [
+      1,
+      2,
+      6,
+      7,
+      8,
+      10
+    ],
+    "baseUnit": 8
+  },
+  "radius": [
+    "12px",
+    "50%"
+  ],
+  "shadows": [
+    {
+      "value": "rgba(65, 56, 77, 0.14) 0px 10px 30px 0px",
+      "count": 1
+    },
+    {
+      "value": "rgba(65, 56, 77, 0.14) 0px 14px 40px 0px, rgba(185, 133, 85, 0.35) 0px -3px 0px 0px inset",
+      "count": 1
+    },
+    {
+      "value": "rgba(65, 56, 77, 0.12) 0px 8px 24px 0px",
+      "count": 1
+    }
+  ],
+  "buttons": [
+    {
+      "label": "button",
+      "background": "transparent",
+      "backgroundImage": "",
+      "backdropFilter": "",
+      "color": "#41384D",
+      "padding": "1px 6px",
+      "borderRadius": "50%",
+      "border": "0px none rgb(65, 56, 77)",
+      "boxShadow": "none",
+      "fontSize": "13.3333px",
+      "fontWeight": "400",
+      "height": "36px"
+    },
+    {
+      "label": "Radio",
+      "background": "#E0894A",
+      "backgroundImage": "",
+      "backdropFilter": "",
+      "color": "#41384D",
+      "padding": "6px 2px 7px",
+      "borderRadius": "12px",
+      "border": "0px none rgb(65, 56, 77)",
+      "boxShadow": "none",
+      "fontSize": "11px",
+      "fontWeight": "700",
+      "height": "96.1406px"
+    },
+    {
+      "label": "button",
+      "background": "#41384D",
+      "backgroundImage": "",
+      "backdropFilter": "",
+      "color": "#41384D",
+      "padding": "1px 6px",
+      "borderRadius": "50%",
+      "border": "0px none rgb(65, 56, 77)",
+      "boxShadow": "none",
+      "fontSize": "13.3333px",
+      "fontWeight": "400",
+      "height": "26px"
+    },
+    {
+      "label": "Cardboard box",
+      "background": "#FFFFFF",
+      "backgroundImage": "",
+      "backdropFilter": "",
+      "color": "#41384D",
+      "padding": "6px 2px 7px",
+      "borderRadius": "12px",
+      "border": "0px none rgb(65, 56, 77)",
+      "boxShadow": "none",
+      "fontSize": "11px",
+      "fontWeight": "700",
+      "height": "96.2812px"
+    }
+  ],
+  "cards": [],
+  "nav": {
+    "label": "navigation",
+    "background": "transparent",
+    "backgroundImage": "",
+    "backdropFilter": "",
+    "color": "#41384D",
+    "padding": "0px",
+    "borderRadius": "0px",
+    "border": "0px none rgb(65, 56, 77)",
+    "boxShadow": "none",
+    "fontSize": "16px",
+    "fontWeight": "400",
+    "height": "41.7344px"
+  },
+  "chips": [],
+  "statCells": [],
+  "tabs": [],
+  "backgrounds": [
+    {
+      "value": "linear-gradient(rgb(187, 214, 238), rgb(241, 232, 225))",
+      "area": 2073600
+    }
+  ],
+  "glass": [
+    {
+      "backdropFilter": "blur(16px)",
+      "background": "linear-gradient(rgba(255, 250, 243, 0.86), rgba(250, 240, 228, 0.86))",
+      "border": "1px solid rgba(255, 255, 255, 0.7)",
+      "borderRadius": "18px",
+      "boxShadow": "rgba(65, 56, 77, 0.14) 0px 14px 40px 0px, rgba(185, 133, 85, 0.35) 0px -3px 0px 0px inset",
+      "area": 128822
+    },
+    {
+      "backdropFilter": "blur(14px) saturate(1.2)",
+      "background": "rgba(255, 250, 243, 0.74)",
+      "border": "1px solid rgba(255, 255, 255, 0.7)",
+      "borderRadius": "999px",
+      "boxShadow": "rgba(65, 56, 77, 0.14) 0px 10px 30px 0px",
+      "area": 42768
+    },
+    {
+      "backdropFilter": "blur(14px)",
+      "background": "rgba(255, 250, 243, 0.78)",
+      "border": "1px solid rgba(255, 255, 255, 0.7)",
+      "borderRadius": "999px",
+      "boxShadow": "rgba(65, 56, 77, 0.12) 0px 8px 24px 0px",
+      "area": 11232
+    }
+  ]
+}

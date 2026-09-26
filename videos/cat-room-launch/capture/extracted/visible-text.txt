@@ -1,0 +1,32 @@
+[h1] Cat Room
+[p] Arrange things, watch the light move. The cat will find the warm spot.
+[b] Drag
+[b] Click
+[span] 17:04
+[label] Walls
+[span] Tap the room to focus
+[button] Save picture
+[button] Done
+[span] Recording the day
+[button] Stop
+[h2] The dresser
+[p] Drag anything into the room
+[span] Radio
+[span] Cardboard box
+[span] Food & water
+[span] Cat tree
+[span] Floor lamp
+[span] Candle
+[span] Yarn ball
+[span] Watering can
+[span] Bird feeder
+[span] Wind chime
+[span] Easel
+[span] Laser
+[b] Drag
+[p] furniture ·
+[p] turns it ·
+[b] Delete
+[p] removes
+[b] Tap the room to listen
+[em] Cat Room Radio · lo-fi

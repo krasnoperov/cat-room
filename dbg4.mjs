@@ -1,0 +1,10 @@
+import { chromium } from '/home/alv/projects/makefx/node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/index.mjs';
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const page = await browser.newPage({ viewport: { width: 640, height: 360 } });
+await page.goto('http://localhost:8123/index.html?fixed=1&clean=1&t=11&speed=0.02');
+await page.waitForFunction(() => window.__room && window.__room.frames >= 2);
+await page.waitForTimeout(2000);
+await page.evaluate(() => { const r = window.__room; r.addProp('box',{x:0.35,z:0.55}); });
+await page.waitForTimeout(3000);
+console.log(await page.evaluate(() => { const r = window.__room; const b = r.props.find((p) => p.type === 'box'); const V = r.camera.position.constructor; const w = b.group.getWorldPosition(new V()); const bb = new (Object.getPrototypeOf(r.camera.position).constructor)(); return { group: b.group.position.toArray(), world: w.toArray(), item: [b.item.x, b.item.z], parent: b.group.parent?.type, model: b.model?.position.toArray() }; }));
+await browser.close();

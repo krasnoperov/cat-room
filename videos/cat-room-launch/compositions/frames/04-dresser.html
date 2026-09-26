@@ -1,0 +1,153 @@
+<template>
+  <div id="root" data-composition-id="04-dresser" data-width="1920" data-height="1080" data-duration="5">
+    <style>
+      @font-face {
+        font-family: "Fraunces";
+        src: url("assets/fonts/fraunces-normal-latin.woff2") format("woff2");
+        font-style: normal;
+        font-weight: 400;
+      }
+      @font-face {
+        font-family: "Fraunces";
+        src: url("assets/fonts/fraunces-italic-latin.woff2") format("woff2");
+        font-style: italic;
+        font-weight: 400;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        container-type: size;
+      }
+      .\30 4-dresser-layer {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        pointer-events: none;
+      }
+      .\30 4-dresser-card {
+        position: absolute;
+        left: 560px;
+        background: #FFFAF3;
+        border: 1px solid rgba(65, 56, 77, 0.12);
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(65, 56, 77, 0.08), 0 4px 16px rgba(65, 56, 77, 0.04);
+        color: #41384D;
+        font-family: "Fraunces", Georgia, serif;
+        font-weight: 400;
+        white-space: nowrap;
+      }
+      #\30 4-dresser-line1 {
+        top: 60px;
+        padding: 20px 32px 22px;
+        font-size: 60px;
+        line-height: 1.06;
+        letter-spacing: -0.018em;
+      }
+      #\30 4-dresser-line2 {
+        top: 178px;
+        padding: 14px 34px 20px;
+        font-size: 84px;
+        font-style: italic;
+        line-height: 1.05;
+        letter-spacing: -0.012em;
+      }
+      #\30 4-dresser-wires path {
+        fill: none;
+        stroke: #E0894A;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+      }
+      #\30 4-dresser-wires circle {
+        fill: #E0894A;
+      }
+    </style>
+
+    <!-- Real page recording: the frame's full-strength background -->
+    <!-- approved frame video hoisted by assemble-index -->
+
+    <!-- Coral hairlines: dresser tile -> the item that just landed in the room -->
+    <svg
+      id="04-dresser-wires"
+      class="clip 04-dresser-layer"
+      data-start="0"
+      data-duration="5"
+      data-track-index="1"
+      viewBox="0 0 1920 1080"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <!-- cat tree: from its dresser tile's left edge to the tree on the rug -->
+      <path id="04-dresser-wire-tree" d="M 1502 372 Q 1160 430 836 712" />
+      <circle id="04-dresser-dot-tree" cx="836" cy="712" r="7" />
+      <!-- cardboard box: from the gutter under its tile to the box on the rug -->
+      <path id="04-dresser-wire-box" d="M 1630 284 Q 1110 300 712 728" />
+      <circle id="04-dresser-dot-box" cx="712" cy="728" r="7" />
+    </svg>
+
+    <!-- Caption cards, top-centre-left: clear of the page title and the dresser -->
+    <div
+      id="04-dresser-copy"
+      class="clip 04-dresser-layer"
+      data-start="0"
+      data-duration="5"
+      data-track-index="2"
+    >
+      <div id="04-dresser-line1" class="04-dresser-card">Open the dresser.</div>
+      <div id="04-dresser-line2" class="04-dresser-card">Add things.</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      (function () {
+        window.__timelines = window.__timelines || {};
+        const root = document.querySelector('[data-composition-id="04-dresser"]');
+        const q = (id) => root.querySelector("#" + CSS.escape(id));
+        const tl = gsap.timeline({ paused: true });
+
+        // Scene 1 (0.0–1.1s): "Open the dresser." slide-up crossfade
+        tl.fromTo(
+          q("04-dresser-line1"),
+          { opacity: 0, y: 28 },
+          { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" },
+          0.15
+        );
+
+        // Scene 2 (1.1–3.3s): hairline draws from the dresser to each new item, then fades
+        const wire = (pathId, dotId, start) => {
+          const p = q(pathId);
+          const d = q(dotId);
+          const len = p.getTotalLength() * 1.02;
+          p.style.strokeDasharray = String(len);
+          tl.fromTo(
+            p,
+            { strokeDashoffset: len, opacity: 1 },
+            { strokeDashoffset: 0, duration: 0.5, ease: "power2.out" },
+            start
+          );
+          tl.fromTo(
+            d,
+            { opacity: 0, scale: 0.4, transformOrigin: "50% 50%" },
+            { opacity: 1, scale: 1, duration: 0.25, ease: "power1.out" },
+            start + 0.4
+          );
+          tl.to([p, d], { opacity: 0, duration: 0.4, ease: "power1.out" }, start + 0.85);
+        };
+        wire("04-dresser-wire-tree", "04-dresser-dot-tree", 1.15);
+        wire("04-dresser-wire-box", "04-dresser-dot-box", 2.25);
+
+        // Scene 3 (3.3–5.0s): "Add things." lands under the first line on the lamp's arrival; hold
+        tl.fromTo(
+          q("04-dresser-line2"),
+          { opacity: 0, y: 24 },
+          { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" },
+          3.3
+        );
+        tl.set({}, {}, 5);
+
+        window.__timelines["04-dresser"] = tl;
+      })();
+    </script>
+  </div>
+</template>

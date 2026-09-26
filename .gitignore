@@ -2,3 +2,8 @@ node_modules/
 dist/
 .wrangler/
 audio-src/
+videos/*/assets/
+videos/*/capture/assets/clips/
+videos/*/renders/video.mp4
+videos/*/snapshots/
+videos/*/.hyperframes/
