@@ -351,7 +351,7 @@ const num = (k, d) => (params.has(k) ? parseFloat(params.get(k)) : d);
    the west wall (x = -HW), the shelves hang on the north wall.
    =================================================================== */
 const HW = 2, H = 2.7, T = 0.12;
-const WIN = { u0: -1.3, u1: 0.5, y0: 0.6, y1: 2.25 };
+const WIN = { u0: -1.3, u1: 0.5, y0: 0.57, y1: 2.25 }; // the bottom sits just above the seat cushion
 const NEAR_CUT = 0.3;
 /* the way in: a doorway in the east wall, between the lemon tree and the desk */
 const DOOR = { u0: 0.02, u1: 0.9, y0: 0, y1: 2.08 };
@@ -666,37 +666,43 @@ const windowGroup = new THREE.Group();
 scene.add(windowGroup);
 function bar(w, h, d, mat) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.castShadow = true; return m; }
 {
-  // reveal trim and sill
-  const trim = M.white;
-  const sill = bar(0.16, 0.035, WIN.u1 - WIN.u0 + 0.14, trim);
-  sill.position.set(-HW + 0.04, WIN.y0 - 0.017, winCenter.z);
-  windowGroup.add(sill);
-  const head = bar(0.05, 0.05, WIN.u1 - WIN.u0 + 0.1, trim);
-  head.position.set(-HW + 0.02, WIN.y1 + 0.025, winCenter.z);
-  windowGroup.add(head);
-  for (const z of [WIN.u0 - 0.025, WIN.u1 + 0.025]) {
-    const jamb = bar(0.05, WIN.y1 - WIN.y0 + 0.1, 0.05, trim);
-    jamb.position.set(-HW + 0.02, winCenter.y, z);
-    windowGroup.add(jamb);
-  }
+  // a clean niche: white linings on the four faces of the reveal, flush with the wall,
+  // and a fixed frame set into the wall's depth, so nothing juts into the room
+  const trim = M.white, lip = 0.012, W = WIN.u1 - WIN.u0, Hh = WIN.y1 - WIN.y0;
+  const lining = (w, h, d, x, y, z) => { const m = bar(w, h, d, trim); m.position.set(x, y, z); windowGroup.add(m); return m; };
+  const rx = -HW - T / 2 + lip / 2, rd = T + lip;
+  lining(rd, 0.025, W, rx, WIN.y0 - 0.0125, winCenter.z);          // sill board
+  lining(rd, 0.025, W, rx, WIN.y1 + 0.0125, winCenter.z);          // head
+  lining(rd, Hh + 0.05, 0.025, rx, winCenter.y, WIN.u0 - 0.0125);  // jambs
+  lining(rd, Hh + 0.05, 0.025, rx, winCenter.y, WIN.u1 + 0.0125);
+  // the fixed frame the casements close into, near the outer face of the wall
+  const fx = -HW - T + 0.035, fw = 0.05, fd = 0.05;
+  lining(fd, fw, W, fx, WIN.y0 + fw / 2, winCenter.z);
+  lining(fd, fw, W, fx, WIN.y1 - fw / 2, winCenter.z);
+  lining(fd, Hh, fw, fx, winCenter.y, WIN.u0 + fw / 2);
+  lining(fd, Hh, fw, fx, winCenter.y, WIN.u1 - fw / 2);
+  lining(fd, Hh, 0.06, fx, winCenter.y, winCenter.z);              // centre mullion
 }
 const sashes = [];
 function makeSash(hingeZ, dir) {
-  const w = (WIN.u1 - WIN.u0) / 2, h = WIN.y1 - WIN.y0, f = 0.045;
+  // a casement: a solid frame with glazing bars, two panes across and three down
+  const w = (WIN.u1 - WIN.u0) / 2 - 0.08, h = WIN.y1 - WIN.y0 - 0.1, f = 0.055, d = 0.04;
   const pivot = new THREE.Group();
-  pivot.position.set(-HW - 0.03, WIN.y0, hingeZ);
+  pivot.position.set(-HW - T + 0.01, WIN.y0 + 0.05, hingeZ + dir * 0.05);
   const panel = new THREE.Group();
   panel.position.z = dir * w / 2;
   const mat = M.white;
-  const top = bar(0.035, f, w, mat); top.position.y = h - f / 2;
-  const bot = bar(0.035, f, w, mat); bot.position.y = f / 2;
-  const s1 = bar(0.035, h, f, mat); s1.position.set(0, h / 2, -w / 2 + f / 2);
-  const s2 = bar(0.035, h, f, mat); s2.position.set(0, h / 2, w / 2 - f / 2);
-  const mid = bar(0.03, 0.025, w, mat); mid.position.y = h * 0.62;
+  const top = bar(d, f, w, mat); top.position.y = h - f / 2;
+  const bot = bar(d, f, w, mat); bot.position.y = f / 2;
+  const s1 = bar(d, h, f, mat); s1.position.set(0, h / 2, -w / 2 + f / 2);
+  const s2 = bar(d, h, f, mat); s2.position.set(0, h / 2, w / 2 - f / 2);
+  const glazing = [bar(d * 0.7, h - 2 * f, 0.022, mat)];
+  for (const k of [1 / 3, 2 / 3]) { const g = bar(d * 0.7, 0.022, w - 2 * f, mat); g.position.y = f + (h - 2 * f) * k; glazing.push(g); }
+  glazing[0].position.y = h / 2;
   const glass = new THREE.Mesh(new THREE.PlaneGeometry(w - f, h - f), M.glass);
   glass.rotation.y = Math.PI / 2; glass.position.y = h / 2;
   noInk(glass);
-  panel.add(top, bot, s1, s2, mid, glass);
+  panel.add(top, bot, s1, s2, ...glazing, glass);
   pivot.add(panel);
   windowGroup.add(pivot);
   sashes.push({ pivot, dir });
@@ -746,6 +752,21 @@ function shadowAll(g, cast = true) { g.traverse((o) => { if (o.isMesh) { o.castS
 function part(mesh, p) { mesh.traverse((o) => { if (o.isMesh) o.userData.part = p; }); return mesh; }
 
 await yieldToBrowser();
+/* a stuffed cushion: full in the middle, thin at the seams, corners pinched */
+function pillowGeometry(w, h, t) {
+  const g = new THREE.BoxGeometry(w, h, t, 16, 16, 4);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const u = p.getX(i) / (w / 2), v = p.getY(i) / (h / 2);
+    const fill = Math.sqrt(Math.max(0, (1 - u ** 4) * (1 - v ** 4)));
+    p.setZ(i, p.getZ(i) * (0.18 + 0.82 * fill));
+    // seams pull in a touch at the edge centres, corners stay pointed
+    const pinch = 1 - 0.06 * (1 - Math.abs(v)) * (Math.abs(u) > 0.9 ? 1 : 0) - 0.06 * (1 - Math.abs(u)) * (Math.abs(v) > 0.9 ? 1 : 0);
+    p.setX(i, p.getX(i) * pinch); p.setY(i, p.getY(i) * (pinch + (1 - pinch) * 0.5));
+  }
+  g.computeVertexNormals();
+  return g;
+}
 /* --- window seat (built in) --- */
 const seatItem = (() => {
   const g = new THREE.Group();
@@ -754,10 +775,11 @@ const seatItem = (() => {
   base.position.set(0, 0.21, 0);
   const cushion = new THREE.Mesh(new RoundedBoxGeometry(w - 0.04, 0.1, d - 0.04, 4, 0.045), M.cushion);
   cushion.position.set(0, 0.47, 0);
-  const p1 = new THREE.Mesh(new RoundedBoxGeometry(0.1, 0.34, 0.4, 4, 0.05), M.pillowA);
-  p1.position.set(-0.17, 0.66, d / 2 - 0.3); p1.rotation.set(0, 0.2, -0.22);
-  const p2 = new THREE.Mesh(new RoundedBoxGeometry(0.1, 0.3, 0.36, 4, 0.05), M.pillowB);
-  p2.position.set(-0.12, 0.64, d / 2 - 0.6); p2.rotation.set(0, -0.15, -0.18);
+  const p1 = new THREE.Mesh(pillowGeometry(0.36, 0.4, 0.13), M.pillowA);
+  // standing on the cushion, leaning back on the glass: rotated to face the room, tipped back a little
+  p1.rotation.order = 'YXZ'; p1.rotation.set(-0.2, Math.PI / 2 + 0.22, 0.04); p1.position.set(-w / 2 + 0.1, 0.52 + 0.19, d / 2 - 0.32);
+  const p2 = new THREE.Mesh(pillowGeometry(0.32, 0.36, 0.12), M.pillowB);
+  p2.rotation.order = 'YXZ'; p2.rotation.set(-0.16, Math.PI / 2 - 0.14, -0.05); p2.position.set(-w / 2 + 0.11, 0.52 + 0.17, d / 2 - 0.64);
   const blanket = new THREE.Mesh(new RoundedBoxGeometry(w - 0.02, 0.05, 0.36, 3, 0.02), M.throwLav);
   blanket.position.set(0.01, 0.53, -d / 2 + 0.3);
   // cubbies with baskets under the seat
@@ -3827,7 +3849,7 @@ function frame(now) {
 
   // window and breeze
   windowState.k += ((windowState.open ? 1 : 0) - windowState.k) * damp(dt, 3);
-  sashes.forEach((s) => { s.pivot.rotation.y = -s.dir * 0.95 * windowState.k; });
+  sashes.forEach((s) => { s.pivot.rotation.y = -s.dir * 0.62 * windowState.k; }); // casements swing out, clear of the seat
   wind.next -= dt;
   if (wind.next <= 0 && windowState.open) { wind.gust = 1; wind.next = 9 + Math.random() * 9; if (Math.random() < 0.55) blowPaper(); }
   wind.gust = Math.max(0, wind.gust - dt * 0.45);
