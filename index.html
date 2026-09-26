@@ -444,6 +444,48 @@ const paperTex = canvasTex(256, 360, (g, w, h) => {
   }
 });
 
+/* Window glass: a faint tint of the sky, a painted sheen, stronger reflection the more
+   the pane turns away from you (so an open casement mirrors the sky), the lantern's
+   warmth after dark, and rain drops when it rains. */
+function glassMaterial(drops) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uDrops: { value: drops }, uRain: { value: 0 }, uNight: { value: 0 },
+      uSky: { value: new THREE.Color('#cfe0f3') }, uWarm: { value: new THREE.Color('#ffc58a') },
+      uView: { value: new V3(-0.6, -0.5, -0.6) },
+    },
+    vertexShader: `
+      #include <clipping_planes_pars_vertex>
+      varying vec2 vUv; varying vec3 vN;
+      void main(){
+        vUv = uv; vN = normalize(mat3(modelMatrix) * normal);
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        #include <clipping_planes_vertex>
+      }`,
+    fragmentShader: `
+      #include <clipping_planes_pars_fragment>
+      uniform sampler2D uDrops; uniform float uRain, uNight; uniform vec3 uSky, uWarm, uView;
+      varying vec2 vUv; varying vec3 vN;
+      float band(float p, float c, float w){ return 1.0 - smoothstep(0.0, w, abs(p - c)); }
+      void main(){
+        #include <clipping_planes_fragment>
+        float facing = abs(dot(normalize(vN), normalize(uView)));
+        float fres = pow(1.0 - facing, 2.0);
+        float p = vUv.x * 0.8 + vUv.y * 0.6;
+        float sheen = band(p, 0.62, 0.07) * 0.9 + band(p, 0.78, 0.022);
+        vec3 refl = mix(uSky, uWarm, uNight);
+        vec3 col = mix(refl, vec3(1.0), sheen * 0.7);
+        float a = 0.07 + 0.5 * fres + sheen * 0.2 * (1.0 - 0.5 * uNight) + 0.16 * uNight;
+        vec4 d = texture2D(uDrops, vUv * 2.0);
+        col = mix(col, d.rgb, d.a * uRain);
+        a = max(a, d.a * uRain * 0.9);
+        gl_FragColor = vec4(col, clamp(a, 0.0, 0.85));
+        #include <colorspace_fragment>
+      }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+  });
+}
 const M = {
   wall: toon('#fbf4ec'),
   wallTop: toon('#e6dbe6'),
@@ -468,7 +510,7 @@ const M = {
   metal: toon('#8a8494'),
   frame: toon('#b98555'),
   paper: toon('#ffffff', { map: paperTex, side: THREE.DoubleSide }),
-  glass: new THREE.MeshBasicMaterial({ color: '#eef5ff', transparent: true, opacity: 0, depthWrite: false, map: canvasTex(256, 256, (g, w, h) => {
+  glass: glassMaterial(canvasTex(256, 256, (g, w, h) => {
     const r = rng(77);
     for (let i = 0; i < 90; i++) {
       const x = r() * w, y = r() * h, s = 2 + r() * 5;
@@ -476,7 +518,7 @@ const M = {
       g.fillStyle = 'rgba(255, 255, 255, 0.9)'; g.beginPath(); g.arc(x - s * 0.3, y - s * 0.4, s * 0.3, 0, Math.PI * 2); g.fill();
       if (r() < 0.25) { g.strokeStyle = 'rgba(200, 215, 240, 0.4)'; g.lineWidth = s * 0.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - 0.5) * 6, y + 20 + r() * 40); g.stroke(); }
     }
-  }, [2, 2]) }),
+  }, [2, 2])),
   lanternOff: toon('#f3e8d4'),
   lanternOn: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffd9a0').multiplyScalar(2.4) }),
   rib: toon('#c8a77c'),
@@ -2375,7 +2417,8 @@ const PROP_TYPES = {
 };
 const SLOTS = {
   // outside, in the open half of the window as seen from the usual corner
-  birdFeeder: () => ({ pos: new V3(-HW - 0.34, 1.62, -0.95), wall: 'W' }),
+  // outside, clear of the casement's swing, seen through the open half of the window
+  birdFeeder: () => ({ pos: new V3(-HW - 0.8, 1.55, -0.55), wall: 'W' }),
   windChime: () => ({ pos: new V3(-HW + 0.22, WIN.y1 + 0.1, WIN.u0 + 0.35), wall: 'W' }),
 };
 const props = [];
@@ -2775,7 +2818,8 @@ function stepBirds(dt, t) {
   for (const b of birds) {
     if (b.state === 'away') { b.group.visible = false; continue; }
     const perch = pr.perches[b.i % pr.perches.length].getWorldPosition(new V3());
-    const outside = perch.clone().add(new V3(-1.4, 0.9, b.i ? 1.2 : -1.2));
+    // they come in from further out and above, never through the frame or the casements
+    const outside = perch.clone().add(new V3(-1.6, 1.1, b.i ? 0.5 : -0.5));
     b.t += dt;
     b.group.visible = true;
     let flying = false;
@@ -3769,7 +3813,7 @@ const hemiDayGround = new THREE.Color('#e8d3e6'), hemiNightGround = new THREE.Co
 const tintDusk = new THREE.Color('#ffc59a'), white = new THREE.Color('#ffffff'), rainTint = new THREE.Color('#b9c3d8');
 const lanternGlow = new THREE.Color('#ffe2b0');
 
-let last = performance.now(), time = 0, grownLast = -1;
+let last = performance.now(), time = 0, grownLast = -1, skyTopNow = '#bcd7ee';
 /* ?fixed renders only when asked, one 1/30 s step at a time, for frame-exact videos */
 const FIXED = params.has('fixed');
 const SPEED = num('speed', 1 / 45);
@@ -3815,6 +3859,7 @@ function frame(now) {
   const [top, bottom] = skyColors();
   document.body.style.setProperty('--sky-top', top);
   paintMat.uniforms.uSkyTop.value.set(top);
+  skyTopNow = top;
   paintMat.uniforms.uSkyBottom.value.set(bottom);
   look.tilt += (look.tiltTarget - look.tilt) * damp(dt, 5);
   document.body.style.setProperty('--sky-bottom', bottom);
@@ -3822,8 +3867,13 @@ function frame(now) {
   viewDay.color.copy(white).lerp(tintDusk, sun.warm * 0.6 * (1 - weather.k)).lerp(rainTint, weather.k * 0.7).multiplyScalar(lerp(0.55, 1, sun.day) * lerp(1, 0.7, weather.k));
   hemi.color.lerp(rainTint, weather.k * 0.5);
   hemi.intensity *= lerp(1, 0.72, weather.k);
-  M.glass.opacity = weather.k * 0.9;
-  if (glassMat) glassMat.opacity = M.glass.opacity;
+  if (glassMat) {
+    const gu = glassMat.uniforms;
+    gu.uRain.value = weather.k;
+    gu.uNight.value = Math.max(sun.night, lantern.on ? 0.35 * (1 - sun.day) : 0);
+    gu.uSky.value.set(skyTopNow).lerp(white, 0.35);
+    camera.getWorldDirection(gu.uView.value).negate();
+  }
   viewNight.opacity = sun.night;
   updateBeam();
 
