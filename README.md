@@ -120,3 +120,20 @@ hides the UI · `fixed=1` renders only on `window.__room.tick()`, one
 1/30 s step at a time · `speed` hours per second.
 
 `film.mjs` renders frame-exact videos with `fixed=1`.
+
+## License
+
+Free to look at, learn from, fork and play with; not for commercial use.
+
+- **Code** (`index.html`, build and render scripts, the Blender build scripts in
+  `models/*.py`) is licensed under the
+  [PolyForm Noncommercial License 1.0.0](LICENSE).
+- **Art and media** (textures, reference sheets, Blender models, generated music
+  and sounds, renders and videos in `img/`, `assets/`, `models/`, `audio/`,
+  `videos/`) are licensed under
+  [Creative Commons Attribution-NonCommercial 4.0](LICENSE-ASSETS).
+- Third-party parts keep their own licenses: Three.js (MIT, loaded from a CDN),
+  and the Fraunces, Nunito and JetBrains Mono fonts (SIL Open Font License,
+  texts in `fonts/`).
+
+For commercial use, get in touch.
