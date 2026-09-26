@@ -3361,7 +3361,8 @@ function resize() {
   renderer.setSize(w, h, false);
   sizeTargets();
   let half = Math.max(3.05, 3.55 / aspect);
-  if (w < 720) half = Math.max(3.3, 3.2 / aspect);
+  // on a phone the room fills the width and its empty outer corners slip off the edges
+  if (w < 720) half = Math.max(3.3, 3.2 / aspect) * (aspect < 1 ? 0.76 : 1);
   half /= view.zoom;
   camera.left = -half * aspect; camera.right = half * aspect;
   if (typeof docked === 'function' && docked()) {
