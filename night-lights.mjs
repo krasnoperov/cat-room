@@ -3,7 +3,7 @@ const [out, t = '21.5'] = process.argv.slice(2);
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const errs = []; page.on('pageerror', (e) => errs.push(e.message));
-await page.goto(`http://localhost:8123/index.html?t=${t}&paused=1&clean=1`);
+await page.goto(`${process.env.BASE || 'http://localhost:8123/index.html'}?t=${t}&paused=1&clean=1`);
 await page.waitForFunction(() => window.__room && window.__room.frames > 5);
 await page.evaluate(() => { const r = window.__room; r.addProp('floorLamp', { x: 1.6, z: -1.2 }); r.addProp('candle', { host: 'Desk', x: -0.3, y: 0.755, z: -0.1 }); r.addProp('box', { x: 0.9, z: 0.6 }); });
 await page.waitForTimeout(4500);
