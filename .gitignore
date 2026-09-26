@@ -7,3 +7,6 @@ videos/*/capture/assets/clips/
 videos/*/renders/video.mp4
 videos/*/snapshots/
 videos/*/.hyperframes/
+videos/*/renders/
+*.mp4
+!audio/*.mp3
