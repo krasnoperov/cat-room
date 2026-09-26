@@ -3,7 +3,7 @@ const S = process.argv[2];
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const errs = []; page.on('pageerror', (e) => errs.push(e.message)); page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
-await page.goto('http://localhost:8123/index.html?t=18.9&grow=0.9');
+await page.goto((process.env.BASE || 'http://localhost:8123/index.html') + '?t=18.9&grow=0.9');
 await page.waitForFunction(() => window.__room && window.__room.frames > 5);
 const R = (f) => page.evaluate(f);
 await R(() => { const r = window.__room; for (const t of ['box', 'bowls', 'catTree', 'floorLamp', 'yarn', 'wateringCan', 'birdFeeder', 'windChime', 'easel']) r.addProp(t); r.addProp('candle', { host: 'Desk', x: -0.3, y: 0.755, z: -0.1 }); });

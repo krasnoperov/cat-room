@@ -3,7 +3,7 @@
 A small isometric room by a big window. Arrange things, watch the light
 move, and the cat will find the warm spot.
 
-One `index.html`, Three.js r180 from an import map, no build step. Painted
+One `index.html`, Three.js r180 from an import map. Painted
 textures were generated with [makefx](https://makefx.app) (space
 `aleksei-krasnoperov/cat-room`).
 
@@ -14,6 +14,21 @@ python3 -m http.server 8123
 ```
 
 Open http://localhost:8123/.
+
+To build the production site (Node.js 22+):
+
+```bash
+npm ci
+./build.sh
+python3 -m http.server 8124 --bind 127.0.0.1 --directory dist
+```
+
+The build bundles and minifies the room and addons, uses pinned Three.js r180
+minified modules on jsDelivr, self-hosts the original fonts, and losslessly
+compresses all GLB geometry with Meshopt. Source models and textures stay
+unchanged. Content-hashed JavaScript, source maps, and fonts receive immutable
+caching; unversioned files revalidate. Cloudflare applies `dist/_headers`;
+Python's test server does not. See `PERF_REPORT.md` for measurements.
 
 ## What lives in the room
 

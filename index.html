@@ -11,6 +11,7 @@
 <meta property="og:url" content="https://rooms.krasnoperov.me/">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#bcd7ee">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E🐈%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,400&family=Nunito:wght@500;600;700&display=swap">
@@ -309,6 +310,12 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+// Let the controls paint before constructing the room, then yield between
+// independent construction stages so input and font rendering can proceed.
+await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+const yieldToBrowser = () => globalThis.scheduler?.yield?.() ?? new Promise((resolve) => setTimeout(resolve, 0));
 
 const $ = (id) => document.getElementById(id);
 const V3 = THREE.Vector3;
@@ -474,6 +481,7 @@ const hatch = new THREE.ShaderMaterial({
     }`,
 });
 
+await yieldToBrowser();
 /* ---------------- clip planes: y <= cut, per wall ---------------- */
 const WALL_KEYS = ['W', 'N', 'E', 'S'];
 const WALLS = {
@@ -675,6 +683,7 @@ function footprint(it) {
 function shadowAll(g, cast = true) { g.traverse((o) => { if (o.isMesh) { o.castShadow = cast; o.receiveShadow = true; } }); }
 function part(mesh, p) { mesh.traverse((o) => { if (o.isMesh) o.userData.part = p; }); return mesh; }
 
+await yieldToBrowser();
 /* --- window seat (built in) --- */
 const seatItem = (() => {
   const g = new THREE.Group();
@@ -788,6 +797,7 @@ for (let i = 0; i < 7; i++) {
   tea.steam.push(noInk(s));
 }
 
+await yieldToBrowser();
 /* --- plants --- */
 function leafShape(slits) {
   const s = new THREE.Shape();
@@ -976,6 +986,7 @@ const lemonItem = (() => {
 })();
 function lemonCount() { return Math.floor(lemon.growth * 6.01); }
 
+await yieldToBrowser();
 /* --- cat bed --- */
 const bedItem = (() => {
   const g = new THREE.Group();
@@ -1106,6 +1117,7 @@ function makePrint(path, w, h, x, y, name) {
 makePrint('img/poster-lemon.webp', 0.34, 0.36, -1.45, 1.62, 'Lemon print');
 makePrint('img/poster-cat.webp', 0.44, 0.32, 1.25, 1.2, 'Cat print');
 
+await yieldToBrowser();
 /* --- paper lantern --- */
 const lantern = { on: false, auto: true };
 const lanternItem = (() => {
@@ -1293,7 +1305,7 @@ const catItem = addItem({
   info: () => `Cat · <em>${cat.activity} · click to pet</em>`,
   click: () => { cat.petT = 4; heart.t = 0; },
 });
-new GLTFLoader().load('models/cat.glb', (gltf) => {
+const catReady = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync('models/cat.glb').then((gltf) => {
   const model = gltf.scene;
   const furMat = toon('#ffffff', { vertexColors: true });
   model.traverse((o) => {
@@ -2106,7 +2118,10 @@ function renderFrame() {
   renderer.setRenderTarget(normalRT);
   renderer.setClearColor(0x808080, 0);
   renderer.clear();
+  // The normal pass does not sample shadows; the colour pass already updated them.
+  renderer.shadowMap.autoUpdate = false;
   renderer.render(scene, camera);
+  renderer.shadowMap.autoUpdate = true;
   renderer.setClearColor(0x000000, 0);
   for (let i = 0; i < swapped.length; i += 2) swapped[i].material = swapped[i + 1];
   swapped.length = 0;
@@ -2127,7 +2142,7 @@ function renderFrame() {
    model loads, or if it is missing, a simple stand-in with the same named
    parts takes its place, so every behaviour works either way.
    =================================================================== */
-const gltf = new GLTFLoader();
+const gltf = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const glbCache = new Map();
 function loadGLB(path) {
   if (!glbCache.has(path)) glbCache.set(path, new Promise((res) => gltf.load(path, (g) => res(g.scene), undefined, () => res(null))));
@@ -3571,6 +3586,7 @@ for (const k of WALL_KEYS) buildWall(k);
 
 
 function frame(now) {
+  if (!FIXED && document.hidden) { last = now; requestAnimationFrame(frame); return; }
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now; time += dt;
 
@@ -3749,12 +3765,27 @@ function frame(now) {
 }
 
 window.__room = {
-  frames: 0, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, windowState, sunlit, lantern, windowState, monstera, lemon, papers, tea,
+  frames: 0, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, sunlit, lantern, windowState, monstera, lemon, papers, tea,
   get: (name) => items.find((i) => i.name === name),
   move(name, x, z, rot = 0) { const it = this.get(name); Object.assign(it, { x, z, rot }); placeItem(it); itemsMoved(); },
   project(v) { const p = new V3(...v).project(camera); return [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight]; },
 };
 window.__room.tick = (n = 1) => { for (let i = 0; i < n; i++) frame(last + 1000 / 30); };
+// Warm up both scene passes with the initial models, avoiding shader stalls
+// as they arrive. Failed assets retain the existing stand-ins.
+// never hold the first frame for long on a slow connection
+await Promise.race([Promise.allSettled([catReady, ...glbCache.values()]), new Promise((r) => setTimeout(r, 2500))]);
+await yieldToBrowser();
+renderer.setRenderTarget(colorRT);
+await renderer.compileAsync(scene, camera);
+camera.layers.set(0);
+scene.traverseVisible((o) => { if (o.isMesh && o.layers.test(camera.layers)) { swapped.push(o, o.material); o.material = normalMatFor(o.material); } });
+renderer.setRenderTarget(normalRT);
+await renderer.compileAsync(scene, camera);
+for (let i = 0; i < swapped.length; i += 2) swapped[i].material = swapped[i + 1];
+swapped.length = 0;
+camera.layers.enable(1);
+renderer.setRenderTarget(null);
 if (FIXED) { last = 0; window.__room.tick(2); } else requestAnimationFrame(frame);
 </script>
 </body>
