@@ -202,8 +202,8 @@
 
 <div class="hint">
   <b>Drag</b> furniture · <b>R</b> turns it<br>
-  <b>Click</b> the window, lantern, tea, books<br>
-  Pick up the cat if you must
+  <b>Click</b> the radio, window, lantern, tea<br>
+  <b>+</b> adds things · the laser teases the cat
 </div>
 
 <div class="dock" role="toolbar" aria-label="Room controls">
@@ -3504,12 +3504,13 @@ function frame(now) {
     monstera.leaves.forEach((u, i) => {
       const target = i < count ? sc * (i === count - 1 ? clamp((monstera.growth * 5.01 % 1) * 1.6 + 0.4, 0.4, 1) : 1) : 0.001;
       u.scale.setScalar(lerp(u.scale.x, target, damp(dt, 2)));
+      u.visible = u.scale.x > 0.02;
       sway(u, Math.sin(time * 1.3 + i) * 0.015 * (1 + wind.v * 3));
     });
     lemon.lit = sunlit(new V3(lemonItem.x, 0.85, lemonItem.z));
     if (lemon.lit && thriving(lemon, dt)) lemon.growth = Math.min(1, lemon.growth + dt * 0.004);
     const n = lemonCount();
-    lemon.fruit.forEach((f, i) => f.scale.setScalar(lerp(f.scale.x, i < n ? 1 : 0.001, damp(dt, 2))));
+    lemon.fruit.forEach((f, i) => { f.scale.setScalar(lerp(f.scale.x, i < n ? 1 : 0.001, damp(dt, 2))); f.visible = f.scale.x > 0.02; });
     for (const p of pothos) {
       p.lit = sunlit(new V3(p.x, p.y - 0.2, p.z + 0.1));
       if (p.lit && thriving(p, dt)) p.growth = Math.min(1, p.growth + dt * 0.004);
@@ -3518,6 +3519,7 @@ function frame(now) {
         if (v.glb) {
           v.leaves.forEach((lf, i) => {
             lf.scale.setScalar(lerp(lf.scale.x, i < n ? 1 : 0.001, damp(dt, 2)));
+            lf.visible = lf.scale.x > 0.02; // a leaf too small to see still gets inked
             sway(lf, Math.sin(time * 0.9 + i * 0.7 + v.k) * 0.05 * (1 + wind.v * 3));
           });
           v.segs.forEach((sg, i) => { sg.visible = i < n; });

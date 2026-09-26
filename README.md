@@ -40,6 +40,33 @@ Open http://localhost:8123/.
   drawn from joint to paw every frame and the tail grows from the pelvis,
   so it sits on its haunches, walks with its tail up and sleeps as a loaf.
 
+## Things to add (the + shelf)
+
+Each is a Blender model (`models/props_build.py`, from a makefx reference
+sheet) with its own behaviour:
+
+- **Radio**: the music. Click it; the dial glows and the sound comes from
+  where it stands. It starts on the bookcase.
+- **Cardboard box**: the cat climbs in, ahead of any warm spot, until it
+  gets bored.
+- **Food & water**: dinner at 08:00 and 19:00; an empty bowl means a cat
+  sitting in front of you saying *mrrp?* until you click to refill.
+- **Cat tree**: two perches; the top one is where it sleeps at night.
+- **Floor lamp**: a warm pool of light and a warm spot after dark.
+- **Candle**: flickers; a gust through the open window blows it out.
+- **Yarn ball**: rolls and bounces, unwinds a thread, gets batted by the
+  cat. Click to wind it back.
+- **Watering can**: plants now need water as well as sun. Click the can,
+  then a plant; too much water makes a puddle.
+- **Bird feeder**: outside the window; sparrows visit in daylight and the
+  cat watches them from the window seat.
+- **Wind chime**: swings and rings in the breeze (synthesised in the
+  browser).
+- **Easel**: click it and the room paints itself (a Kuwahara oil filter
+  over the current view).
+- **Laser pointer** (in the dock): the cat stalks and pounces on the dot,
+  and gets bored after a while.
+
 ## Controls
 
 - Drag furniture on the floor, prints along the wall; `R` or double-click
