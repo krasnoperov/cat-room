@@ -1,18 +1,20 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Cat viewer</title>
-<style>html,body{margin:0;height:100%;background:#efe6ee}canvas{display:block}</style></head><body>
+<style>html,body{margin:0;height:100%;background:transparent}canvas{display:block}</style></head><body>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/" } }</script>
 <script type="module">
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const q = new URLSearchParams(location.search);
 const W = innerWidth, H = innerHeight;
-const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-renderer.setSize(W, H); renderer.setScissorTest(true); renderer.setClearColor('#ffffff'); document.body.appendChild(renderer.domElement);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setSize(W, H); renderer.setScissorTest(true); renderer.setClearColor('#ffffff', q.has('single') ? 0 : 1); document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.add(new THREE.HemisphereLight('#f3ecff', '#e8d3e6', 2.0));
 const sun = new THREE.DirectionalLight('#fff0dc', 2.2); sun.position.set(-2, 3, 2); scene.add(sun);
 const grad = new THREE.DataTexture(new Uint8Array([120,120,120,255,178,178,178,255,222,222,222,255,255,255,255,255]), 4, 1); grad.minFilter = grad.magFilter = THREE.NearestFilter; grad.needsUpdate = true;
-const views = [[Math.PI * 0.25, 0.5], [Math.PI * 0.5, 0.05], [Math.PI * 0.03, 0.12], [Math.PI * 0.8, 0.6]];
+const single = q.has('single');
+const views = single ? [[Math.PI * 0.25, 0.52]] : [[Math.PI * 0.25, 0.5], [Math.PI * 0.5, 0.05], [Math.PI * 0.03, 0.12], [Math.PI * 0.8, 0.6]];
 new GLTFLoader().load(q.get('m') || 'models/cat.glb', (g) => {
   g.scene.traverse((o) => { if (o.isMesh) { const src = o.material, vc = !!o.geometry.attributes.color; o.material = new THREE.MeshToonMaterial({ gradientMap: grad, vertexColors: vc, map: src.map || null, color: vc || src.map ? 0xffffff : src.color, side: src.side }); } });
   scene.add(g.scene);
@@ -23,8 +25,8 @@ new GLTFLoader().load(q.get('m') || 'models/cat.glb', (g) => {
   const box = new THREE.Box3().setFromObject(g.scene), ctr = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
   const half = Math.max(size.x, size.y, size.z) * 0.6, R = half * 10;
   const cams = views.map(([az, el]) => { const c = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, R * 4); c.position.set(ctr.x + Math.sin(az) * Math.cos(el) * R, ctr.y + Math.sin(el) * R, ctr.z + Math.cos(az) * Math.cos(el) * R); c.lookAt(ctr); return c; });
-  const w = W / 2, h = H / 2;
-  cams.forEach((c, i) => { const x = (i % 2) * w, y = (1 - Math.floor(i / 2)) * h; c.left = -half * w / h; c.right = half * w / h; c.top = half; c.bottom = -half; c.updateProjectionMatrix(); renderer.setViewport(x, y, w, h); renderer.setScissor(x, y, w, h); renderer.render(scene, c); });
+  const w = single ? W : W / 2, h = single ? H : H / 2;
+  cams.forEach((c, i) => { const x = (i % 2) * w, y = single ? 0 : (1 - Math.floor(i / 2)) * h; c.left = -half * w / h; c.right = half * w / h; c.top = half; c.bottom = -half; c.updateProjectionMatrix(); renderer.setViewport(x, y, w, h); renderer.setScissor(x, y, w, h); renderer.render(scene, c); });
   window.done = true;
 });
 </script></body></html>

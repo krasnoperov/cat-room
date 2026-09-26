@@ -78,27 +78,56 @@
   @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 15px; } }
   @media (prefers-reduced-motion: reduce) { .eq i { animation: none; height: 9px; } }
   @media (max-width: 720px) { .radio { left: 16px; top: calc(100px + env(safe-area-inset-top, 0px)); } .radio-text em { display: none; } }
-  .shelf {
-    position: fixed; right: 20px; bottom: calc(86px + env(safe-area-inset-bottom, 0px));
-    width: min(380px, calc(100vw - 32px)); max-height: min(560px, calc(100vh - 140px)); overflow: auto;
-    box-sizing: border-box; padding: 14px 14px 10px;
-    border-radius: 18px; background: rgba(255, 250, 243, 0.9); border: 1px solid rgba(255, 255, 255, 0.7);
-    box-shadow: 0 14px 40px rgba(65, 56, 77, 0.18);
+  .dresser {
+    position: fixed; right: 20px; top: calc(20px + env(safe-area-inset-top, 0px)); max-height: calc(100vh - 116px);
+    width: 272px; box-sizing: border-box; display: flex; flex-direction: column;
+    padding: 14px 12px 10px; border-radius: 18px;
+    background: linear-gradient(180deg, rgba(255, 250, 243, 0.86), rgba(250, 240, 228, 0.86));
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 14px 40px rgba(65, 56, 77, 0.14), inset 0 -3px 0 rgba(185, 133, 85, 0.35);
     -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
     color: #41384d;
   }
-  .shelf header { display: flex; align-items: center; justify-content: space-between; margin: 0 2px 8px 4px; }
-  .shelf h2 { margin: 0; font: 500 19px/1.2 var(--f-title); }
-  .shelf ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-  .card { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.6); }
-  .card.placed { background: rgba(224, 137, 74, 0.1); }
-  .card-text { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
-  .card-text b { font: 700 13.5px/1.2 var(--f-ui); }
-  .card-text em { font: italic 400 12.5px/1.3 var(--f-title); color: #6d6479; }
-  .card .pill { height: 32px; padding: 0 14px; font-size: 12.5px; flex: none; }
-  .shelf-hint { margin: 10px 4px 2px; font: 600 11.5px/1.4 var(--f-ui); color: #6d6479; }
-  body.photo .shelf, body.recording .shelf { display: none; }
-  @media (max-width: 720px) { .shelf { right: 16px; bottom: calc(176px + env(safe-area-inset-bottom, 0px)); max-height: calc(100vh - 346px); } }
+  .dresser header { display: flex; align-items: flex-start; justify-content: space-between; margin: 0 4px 10px 6px; }
+  .dresser h2 { margin: 0; font: 500 19px/1.15 var(--f-title); }
+  .dresser header p { margin: 3px 0 0; font: italic 400 13px/1.3 var(--f-title); color: #6d6479; }
+  .dresser ul { list-style: none; margin: 0; padding: 2px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; overflow: auto; min-height: 0; }
+  .tile { position: relative; }
+  .tile > button.pick {
+    width: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 2px 7px; border: 0; border-radius: 12px; background: rgba(255, 255, 255, 0.55);
+    color: #41384d; font: 700 11px/1.15 var(--f-ui); text-align: center; cursor: grab; touch-action: none;
+  }
+  .tile > button.pick:hover { background: #fff; }
+  .tile > button.pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .tile img { width: 56px; height: 56px; object-fit: contain; pointer-events: none; }
+  .tile .glyph { width: 56px; height: 56px; display: grid; place-items: center; }
+  .tile .glyph svg { width: 34px; height: 34px; }
+  .tile.placed > button.pick { background: rgba(224, 137, 74, 0.14); }
+  .tile.placed img { opacity: 0.55; }
+  .tile.placed > button.pick::after { content: 'in the room'; font: italic 400 10.5px/1 var(--f-title); color: #a06a44; }
+  .tile.tool.on > button.pick { background: rgba(224, 88, 74, 0.16); }
+  .tile.tool.on > button.pick::after { content: 'on'; font: italic 400 10.5px/1 var(--f-title); color: #c0503f; }
+  .tile .drop {
+    position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; border: 0;
+    display: grid; place-items: center; background: rgba(65, 56, 77, 0.12); color: #41384d; cursor: pointer;
+  }
+  .tile .drop:hover { background: rgba(65, 56, 77, 0.22); }
+  .tile .drop svg { width: 12px; height: 12px; }
+  .dresser-hint { margin: 10px 6px 0; font: 600 11.5px/1.45 var(--f-ui); color: #6d6479; }
+  .dresser-hint b { color: #41384d; }
+  .dresser-close { display: none; }
+  .ghost { position: fixed; left: 0; top: 0; width: 76px; height: 76px; pointer-events: none; z-index: 20; transform: translate(-50%, -60%); opacity: 0.92; filter: drop-shadow(0 6px 10px rgba(65, 56, 77, 0.25)); }
+  body.docked .hint { display: none; }
+  body.photo .dresser, body.recording .dresser { opacity: 0; pointer-events: none; }
+  body.clean .dresser { display: none; }
+  #shelfBtn { display: none; }
+  @media (max-width: 979px) {
+    #shelfBtn { display: grid; }
+    .dresser { top: auto; bottom: calc(176px + env(safe-area-inset-bottom, 0px)); right: 16px; width: min(340px, calc(100vw - 32px)); max-height: calc(100vh - 346px); }
+    .dresser-close { display: grid; }
+    .dresser[hidden] { display: none !important; }
+  }
   #gl.laser { cursor: crosshair; }
   .toast {
     position: fixed; left: 50%; top: calc(24px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
@@ -226,9 +255,6 @@
   <button id="shelfBtn" type="button" aria-label="Add things to the room" aria-expanded="false" aria-controls="shelf" title="Add things">
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M10 4.5v11M4.5 10h11"/></svg>
   </button>
-  <button id="laserBtn" type="button" aria-label="Laser pointer" aria-pressed="false" title="Laser pointer">
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3.5 16.5l7-7"/><circle cx="13.5" cy="6.5" r="2.2" fill="#e0584a" stroke="none"/><path d="M13.5 1.8v1.4M13.5 9.8v1.4M18.2 6.5h-1.4M10.2 6.5H8.8"/></svg>
-  </button>
   <button id="rain" type="button" aria-label="Rain" aria-pressed="false" title="Rain">
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12.5h8.2a3 3 0 0 0 .4-6A4.6 4.6 0 0 0 5.8 7.4 2.6 2.6 0 0 0 6 12.5z"/><path d="M7.5 15l-.7 1.6M10.6 15l-.7 1.6M13.7 15l-.7 1.6"/></svg>
   </button>
@@ -255,12 +281,16 @@
   <button id="recStop" type="button" class="pill">Stop</button>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
-<section class="shelf" id="shelf" aria-label="Things to add" hidden>
-  <header><h2>Add to the room</h2><button id="shelfClose" type="button" class="radio-btn" aria-label="Close">
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg></button></header>
+<aside class="dresser" id="shelf" aria-label="The dresser: things to add to the room">
+  <header>
+    <div><h2>The dresser</h2><p>Drag anything into the room</p></div>
+    <button id="shelfClose" type="button" class="radio-btn dresser-close" aria-label="Close the dresser">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
+  </header>
   <ul id="shelfList"></ul>
-  <p class="shelf-hint">Drag things to move them · Delete removes what you point at</p>
-</section>
+  <p class="dresser-hint"><b>Drag</b> furniture · <b>R</b> turns it · <b>Delete</b> removes</p>
+</aside>
+<img class="ghost" id="ghost" alt="" hidden>
 <div class="radio" id="radio" hidden>
   <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
   <span class="radio-text"><b id="trackTitle">Cat Room Radio</b><em>Cat Room Radio · lo-fi</em></span>
@@ -1349,7 +1379,7 @@ scene.add(heart.sprite);
    spine sideways; fx, fz, bx, bz are where the front and back paws rest. */
 const POSES = {
   walk:  { y: 0, z: 0, pitch: 0, arch: 0, curl: 0, neck: 0, hp: 0.05, hy: 0, hr: 0, fx: 0.046, fz: 0.086, bx: 0.052, bz: -0.078, tl: 0.12, tc: 0.12, tw: 0, eye: 1 },
-  sit:   { y: -0.055, z: -0.02, pitch: -0.62, arch: 0.05, curl: 0, neck: 0.3, hp: 0.28, hy: 0, hr: 0, fx: 0.042, fz: 0.07, bx: 0.07, bz: 0.0, tl: -1.25, tc: 0.1, tw: 0.55, eye: 1 },
+  sit:   { y: -0.062, z: -0.03, pitch: -0.42, arch: 0.04, curl: 0, neck: 0.22, hp: 0.16, hy: 0, hr: 0, fx: 0.04, fz: 0.055, bx: 0.07, bz: 0.0, tl: -1.25, tc: 0.1, tw: 0.55, eye: 1 },
   sleep: { y: -0.07, z: 0, pitch: 0.03, arch: -0.03, curl: 0.14, neck: 0.04, hp: 0.14, hy: -0.12, hr: -0.08, fx: 0.038, fz: 0.06, bx: 0.04, bz: -0.03, tl: -1.5, tc: 0.04, tw: 0.78, eye: 0 },
   held:  { y: 0.02, z: 0, pitch: -1.1, arch: 0, curl: 0, neck: 0.5, hp: 0.35, hy: 0, hr: 0, fx: 0.046, fz: 0.086, bx: 0.052, bz: -0.078, tl: -0.9, tc: 0.05, tw: 0, eye: 1 },
 };
@@ -1426,6 +1456,17 @@ function poseCat(dt, time) {
   turn(B.spine, AX.y, p.curl);
   turn(B.chest, AX.x, -p.arch * 0.5 + (walking ? Math.sin(cat.phase * 2) * 0.02 : 0));
   turn(B.chest, AX.y, p.curl);
+  // front paws must reach the floor: tip the body forward until they do
+  if (cat.state !== 'held' && cat.state !== 'pounce' && cat.state !== 'hop') {
+    const L = cat.legs[1];
+    for (let k = 0; k < 8; k++) {
+      L.upper.getWorldPosition(_hip);
+      _tgt.set(L.side * p.fx, 0.017, p.fz);
+      cat.group.localToWorld(_tgt);
+      if (_hip.distanceTo(_tgt) <= (L.a + L.b) * 0.97) break;
+      turn(B.pelvis, AX.x, 0.05);
+    }
+  }
   turn(B.neck, AX.x, p.neck);
   turn(B.neck, AX.y, p.curl * 0.7);
   const idle = cat.state === 'sit' ? 1 : 0;
@@ -2756,7 +2797,10 @@ function paintRoom(pr) {
   toast('The room painted itself');
 }
 
-/* ---------- the shelf: add and remove props ---------- */
+/* ---------- the dresser: everything you can add, with a picture ---------- */
+const THUMB = (type) => `img/props/${type.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase())}.webp`;
+const LASER_GLYPH = '<svg viewBox="0 0 20 20" fill="none" stroke="#41384d" stroke-width="1.5" stroke-linecap="round"><path d="M3.5 16.5l7-7"/><circle cx="13.5" cy="6.5" r="2.2" fill="#e0584a" stroke="none"/><path d="M13.5 1.8v1.4M13.5 9.8v1.4M18.2 6.5h-1.4M10.2 6.5H8.8"/></svg>';
+const X_GLYPH = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>';
 function renderShelf() {
   const list = $('shelfList');
   if (!list) return;
@@ -2764,17 +2808,101 @@ function renderShelf() {
   for (const [type, T] of Object.entries(PROP_TYPES)) {
     const placed = props.find((p) => p.type === type);
     const li = document.createElement('li');
-    li.className = 'card' + (placed ? ' placed' : '');
-    li.innerHTML = `<span class="card-text"><b>${T.label}</b><em>${T.note}</em></span>`;
+    li.className = 'tile' + (placed ? ' placed' : '');
     const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'pill' + (placed ? '' : ' primary');
-    btn.textContent = placed ? 'Remove' : 'Add';
-    btn.setAttribute('aria-label', `${placed ? 'Remove' : 'Add'} ${T.label}`);
-    btn.addEventListener('click', () => { if (placed) removeProp(placed); else addProp(type); });
+    btn.type = 'button'; btn.className = 'pick';
+    btn.title = T.note;
+    btn.setAttribute('aria-label', placed ? `${T.label}, in the room. ${T.note}` : `Add ${T.label}. ${T.note}`);
+    btn.innerHTML = `<img src="${THUMB(type)}" alt="" draggable="false"><span>${T.label}</span>`;
+    tileDrag(btn, type);
     li.appendChild(btn);
+    if (placed) {
+      const x = document.createElement('button');
+      x.type = 'button'; x.className = 'drop'; x.innerHTML = X_GLYPH;
+      x.setAttribute('aria-label', `Remove ${T.label}`); x.title = 'Remove';
+      x.addEventListener('click', () => removeProp(placed));
+      li.appendChild(x);
+    }
     list.appendChild(li);
   }
+  const li = document.createElement('li');
+  li.className = 'tile tool' + (laser.on ? ' on' : '');
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'pick'; b.setAttribute('aria-pressed', String(laser.on));
+  b.setAttribute('aria-label', 'Laser pointer. The cat chases the dot');
+  b.title = 'The cat chases the dot';
+  b.innerHTML = `<span class="glyph">${LASER_GLYPH}</span><span>Laser</span>`;
+  b.addEventListener('click', () => {
+    laser.on = !laser.on;
+    if (laser.on) toast('Move the pointer over the floor');
+    laserDot.visible = false; laser.visible = false;
+    renderShelf();
+  });
+  li.appendChild(b);
+  list.appendChild(li);
+}
+/* press a tile and drag it into the room; a plain click adds it wherever it fits */
+function tileDrag(btn, type) {
+  btn.addEventListener('pointerdown', (e) => {
+    if (props.some((p) => p.type === type)) return;
+    const start = { x: e.clientX, y: e.clientY };
+    let dragging = false;
+    const ghost = $('ghost');
+    btn.setPointerCapture(e.pointerId);
+    const move = (ev) => {
+      if (!dragging && Math.hypot(ev.clientX - start.x, ev.clientY - start.y) > 6) { dragging = true; ghost.src = THUMB(type); ghost.hidden = false; }
+      if (dragging) { ghost.style.left = ev.clientX + 'px'; ghost.style.top = ev.clientY + 'px'; }
+    };
+    const up = (ev) => {
+      btn.removeEventListener('pointermove', move);
+      btn.removeEventListener('pointerup', up);
+      btn.removeEventListener('pointercancel', up);
+      ghost.hidden = true;
+      if (!dragging) { addProp(type); return; }
+      const over = document.elementFromPoint(ev.clientX, ev.clientY);
+      if (over === canvas) dropProp(type, ev);
+    };
+    btn.addEventListener('pointermove', move);
+    btn.addEventListener('pointerup', up);
+    btn.addEventListener('pointercancel', up);
+  });
+}
+/* the nearest free floor spot to where something was dropped */
+function nearestFree(w, d, x0, z0) {
+  const probe = { w, d, rot: 0, blocks: true, kind: 'floor' };
+  let best = null, bd = Infinity;
+  for (let x = -HW + w / 2 + 0.03; x <= HW - w / 2 - 0.03; x += 0.05) for (let z = -HW + d / 2 + 0.03; z <= HW - d / 2 - 0.03; z += 0.05) {
+    if (overlaps(probe, x, z, 0)) continue;
+    const dist = Math.hypot(x - x0, z - z0);
+    if (dist < bd) { bd = dist; best = [x, z]; }
+  }
+  return best;
+}
+function dropProp(type, e) {
+  const T = PROP_TYPES[type];
+  if (T.place === 'slot') { addProp(type); return; }
+  const floorHit = planeHit(e, new THREE.Plane(new V3(0, 1, 0), 0));
+  if (!floorHit) { addProp(type); return; }
+  if (T.place === 'small' && type !== 'yarn') {
+    pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    ray.setFromCamera(pointer, camera);
+    for (const h of ray.intersectObjects(pickables, false)) {
+      const owner = h.object.userData.item;
+      if (owner !== deskItem && owner !== bookcaseItem) continue;
+      const n = h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld) : null;
+      const surf = n && n.y > 0.7 ? surfaceAt(h.point) : null;
+      if (surf) {
+        const local = surf.item.group.worldToLocal(h.point.clone());
+        addProp(type, { host: surf.item.name, x: local.x, y: surf.item === deskItem ? 0.755 : 0.8, z: local.z });
+        return;
+      }
+      break;
+    }
+  }
+  const [w, d] = T.size;
+  const spot = nearestFree(w, d, clamp(floorHit.x, -HW, HW), clamp(floorHit.z, -HW, HW));
+  if (!spot) { toast('There is no room for that there'); return; }
+  addProp(type, { x: spot[0], z: spot[1] });
 }
 function setShelf(open) {
   $('shelf').hidden = !open;
@@ -2783,12 +2911,16 @@ function setShelf(open) {
 }
 $('shelfBtn').addEventListener('click', () => setShelf($('shelf').hidden));
 $('shelfClose').addEventListener('click', () => setShelf(false));
-$('laserBtn').addEventListener('click', () => {
-  laser.on = !laser.on;
-  $('laserBtn').setAttribute('aria-pressed', String(laser.on));
-  if (laser.on) toast('Move the pointer over the floor');
-  laserDot.visible = false; laser.visible = false;
-});
+/* on wide screens the dresser stays open beside the room, and the room moves over */
+const DOCK_MIN = 980, DRESSER_W = 272 + 20;
+function docked() { return innerWidth >= DOCK_MIN && !params.has('clean'); }
+function syncDresser() {
+  const d = docked();
+  document.body.classList.toggle('docked', d);
+  if (d) { $('shelf').hidden = false; renderShelf(); }
+  else if (!$('shelf').hidden && $('shelfBtn').getAttribute('aria-expanded') !== 'true') $('shelf').hidden = true;
+}
+addEventListener('resize', syncDresser);
 
 function stepProps(dt, t) {
   for (const pr of props) PROP_STEP[pr.type]?.(pr, dt, t);
@@ -2874,6 +3006,11 @@ function resize() {
   if (w < 720) half = Math.max(3.3, 3.2 / aspect);
   half /= view.zoom;
   camera.left = -half * aspect; camera.right = half * aspect;
+  if (typeof docked === 'function' && docked()) {
+    // centre the room in the space left of the dresser
+    const shift = (DRESSER_W / 2) * (2 * half * aspect) / w;
+    camera.left += shift; camera.right += shift;
+  }
   camera.top = half * 1.02; camera.bottom = -half * 0.98;
   camera.updateProjectionMatrix();
 }
@@ -3426,6 +3563,8 @@ const restored = restoreRoom();
 if (restored) { timeInput.value = Math.round(clock.h * 60); cutInput.value = backCut; setRain(weather.rain); }
 if (!props.some((p) => p.type === 'radio') && !roomHadProps) addProp('radio', { host: 'Bookcase', x: 0.2, y: 0.8, z: 0.01 });
 armRadio();
+syncDresser();
+resize();
 rebuildGrid();
 updateWalls(-1);
 for (const k of WALL_KEYS) buildWall(k);
