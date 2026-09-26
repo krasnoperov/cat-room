@@ -1,5 +1,5 @@
 import { chromium } from '/home/alv/projects/makefx/node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/index.mjs';
-const [out, q = '', script = ''] = process.argv.slice(2);
+const [out, q = '', script = ''] = process.argv.slice(2); // q: e.g. m=models/monstera.glb
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
 page.on('pageerror', (e) => console.log('pageerror', e.message));
