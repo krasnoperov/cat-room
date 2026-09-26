@@ -1,0 +1,16 @@
+import { chromium } from '/home/alv/projects/makefx/node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/index.mjs';
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const errs = []; page.on('pageerror', (e) => errs.push(e.message));
+await page.goto('http://localhost:8123/index.html');
+await page.waitForFunction(() => window.__room && window.__room.frames > 5);
+const st = () => page.evaluate(() => ({ on: window.__room.radio.on, pressed: document.getElementById('radioBtn').getAttribute('aria-pressed'), chip: !document.getElementById('radio').hidden, title: document.getElementById('trackTitle').textContent }));
+console.log('before gesture', JSON.stringify(await st()));
+await page.mouse.click(640, 400); await page.waitForTimeout(1500);
+console.log('after first click', JSON.stringify(await st()));
+await page.click('#radioBtn'); await page.waitForTimeout(300);
+console.log('after turning off', JSON.stringify(await st()));
+await page.reload(); await page.waitForFunction(() => window.__room && window.__room.frames > 5);
+console.log('after reload', JSON.stringify(await st()));
+console.log(errs.join('\n') || 'no errors');
+await browser.close();

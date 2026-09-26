@@ -2314,7 +2314,29 @@ async function setRadio(on) {
     radio.ctx.suspend();
   }
 }
-$('radioBtn').addEventListener('click', () => setRadio(!radio.on));
+$('radioBtn').addEventListener('click', () => {
+  setRadio(!radio.on);
+  try { localStorage.setItem('cat-room-radio', radio.on ? 'on' : 'off'); } catch { /* nothing to remember in private mode */ }
+});
+/* The radio is on unless someone turned it off. Browsers only let sound start
+   from a gesture, so it waits, visibly on, for the first touch or key. */
+{
+  let off = params.has('fixed') || params.get('radio') === '0';
+  try { off = off || localStorage.getItem('cat-room-radio') === 'off'; } catch { /* default on */ }
+  if (!off) {
+    $('radioBtn').setAttribute('aria-pressed', 'true');
+    $('radio').hidden = false;
+    $('trackTitle').textContent = 'Tap the room to listen';
+    const start = (e) => {
+      if (e.target.closest?.('#radioBtn')) return; // the button handles its own click
+      removeEventListener('pointerdown', start, true);
+      removeEventListener('keydown', start, true);
+      if (!radio.on) setRadio(true);
+    };
+    addEventListener('pointerdown', start, true);
+    addEventListener('keydown', start, true);
+  }
+}
 $('nextTrack').addEventListener('click', nextTrack);
 function stepAudio() {
   if (!radio.on) return;
