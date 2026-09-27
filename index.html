@@ -670,18 +670,69 @@ const clothWeave = canvasTex(256, 256, (g, w, h) => {
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
   for (let i = 0; i < w; i += 4) { g.fillStyle = 'rgba(120, 80, 60, 0.07)'; g.fillRect(i, 0, 1.5, h); g.fillRect(0, i, w, 1.5); }
 }, [3, 3]);
+/* a soft linen: fine crossing threads with slubs, white so it tints any colour */
+const linenWeave = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+  const r = rng(58);
+  for (let i = 0; i < w; i += 3) {
+    g.fillStyle = `rgba(110, 90, 70, ${0.035 + r() * 0.04})`; g.fillRect(i, 0, 1.2, h);
+    g.fillStyle = `rgba(110, 90, 70, ${0.03 + r() * 0.035})`; g.fillRect(0, i, w, 1.2);
+  }
+  for (let i = 0; i < 60; i++) { g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(r() * w, r() * h, 6 + r() * 16, 1.4); }
+}, [4, 4]);
+/* surface character in world space, so it never stretches over boxes of different sizes:
+   'plaster' is a soft low mottling, 'glaze' a faint ceramic speckle */
+function surfaceNoise(mat, kind) {
+  mat.userData.surface = kind;
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vSurfW;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvSurfW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying vec3 vSurfW;
+      float sh3(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+      float sn3(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(sh3(i), sh3(i + vec3(1,0,0)), f.x), mix(sh3(i + vec3(0,1,0)), sh3(i + vec3(1,1,0)), f.x), f.y),
+                   mix(mix(sh3(i + vec3(0,0,1)), sh3(i + vec3(1,0,1)), f.x), mix(sh3(i + vec3(0,1,1)), sh3(i + vec3(1,1,1)), f.x), f.y), f.z); }`)
+      .replace('#include <color_fragment>', kind === 'plaster'
+        ? `#include <color_fragment>
+           float m = sn3(vSurfW * 2.2) * 0.6 + sn3(vSurfW * 7.0) * 0.4;
+           diffuseColor.rgb *= 0.975 + 0.05 * m;`
+        : kind === 'walnut'
+        ? `#include <color_fragment>
+           // horizontal walnut grain: warped streaks, darker where they bunch
+           float wv = sn3(vSurfW * vec3(6.0, 40.0, 6.0)) * 2.0;
+           float streak = 0.5 + 0.5 * sin((vSurfW.y * 420.0) + wv * 6.0);
+           diffuseColor.rgb *= 0.9 + 0.12 * smoothstep(0.2, 0.9, streak);`
+        : `#include <color_fragment>
+           float sp = step(0.93, sh3(floor(vSurfW * 260.0)));
+           diffuseColor.rgb *= 1.0 - 0.18 * sp + 0.03 * (sn3(vSurfW * 30.0) - 0.5);`);
+  };
+  mat.customProgramCacheKey = () => 'surface-' + kind;
+  return mat;
+}
+/* a plush sheen: fabric catches light at its silhouette, like velvet */
+function velvet(mat, amount = 0.14) {
+  mat.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', `
+      float rimV = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));
+      outgoingLight += diffuseColor.rgb * ${amount.toFixed(3)} * pow(rimV, 1.6) * 2.0;
+      #include <opaque_fragment>`);
+  };
+  mat.customProgramCacheKey = () => 'velvet-' + amount;
+  return mat;
+}
 const M = {
-  wall: toon('#fbf4ec'),
+  wall: surfaceNoise(toon('#fbf4ec'), 'plaster'),
   wallTop: toon('#e6dbe6'),
   floor: toon('#fff4ea', { map: planks }),
-  wood: toon('#c98d57'),
-  woodDark: toon('#9b6440'),
-  woodLight: toon('#dcb07c'),
-  linen: toon('#f6efe2'),
-  cushion: toon('#efe4d2'),
-  pillowA: toon('#f1d58a'),
-  pillowB: toon('#e6cfe0'),
-  throwLav: toon('#c7b6dc'),
+  wood: toon('#ffffff', { color: '#c98d57', map: woodGrain }),
+  woodDark: toon('#ffffff', { color: '#9b6440', map: woodGrain }),
+  woodLight: toon('#ffffff', { color: '#dcb07c', map: woodGrain }),
+  linen: toon('#ffffff', { color: '#f6efe2', map: linenWeave }),
+  cushion: toon('#ffffff', { color: '#efe4d2', map: linenWeave }),
+  pillowA: velvet(toon('#ffffff', { color: '#f1d58a', map: linenWeave }), 0.1),
+  pillowB: velvet(toon('#ffffff', { color: '#e6cfe0', map: linenWeave }), 0.1),
+  throwLav: toon('#ffffff', { color: '#c7b6dc', map: clothWeave }),
   terracotta: toon('#c9714a'),
   soil: toon('#5a4032'),
   leaf: toon('#4f8d4a', { side: THREE.DoubleSide }),
@@ -692,7 +743,7 @@ const M = {
   mug: toon('#f5efe6'),
   tea: toon('#8a5634'),
   metal: toon('#8a8494'),
-  frame: toon('#b98555'),
+  frame: toon('#ffffff', { color: '#b98555', map: woodGrain }),
   paper: toon('#ffffff', { map: paperTex, side: THREE.DoubleSide }),
   glass: glassMaterial(canvasTex(256, 256, (g, w, h) => {
     const r = rng(77);
@@ -740,7 +791,7 @@ function clipTo(root, key) {
     if (!o.isMesh) return;
     const swap = (m) => {
       const id = m.uuid + key;
-      if (!clipCache.has(id)) { const c = m.clone(); c.clippingPlanes = [clip[key]]; clipCache.set(id, c); }
+      if (!clipCache.has(id)) { const c = m.clone(); c.clippingPlanes = [clip[key]]; c.onBeforeCompile = m.onBeforeCompile; c.customProgramCacheKey = m.customProgramCacheKey; clipCache.set(id, c); }
       return clipCache.get(id);
     };
     o.material = Array.isArray(o.material) ? o.material.map(swap) : swap(o.material);
@@ -945,7 +996,7 @@ windowGroup.add(rod);
 const CURT = { w: 0.85, h: WIN.y1 + 0.15, sx: 18, sy: 26 };
 const curtainGeo = new THREE.PlaneGeometry(CURT.w, CURT.h, CURT.sx, CURT.sy);
 const curtainBase = curtainGeo.attributes.position.array.slice();
-const curtainMat = toon('#fbf3e3', { side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+const curtainMat = toon('#ffffff', { color: '#fbf3e3', map: linenWeave, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
 const curtain = new THREE.Mesh(curtainGeo, curtainMat);
 curtain.rotation.y = Math.PI / 2;
 curtain.position.set(-HW + 0.1, WIN.y1 + 0.16 - CURT.h / 2, SEAT.z1 + 0.06 + CURT.w / 2); // pulled aside, clear of the seat
@@ -1374,7 +1425,7 @@ const bedItem = (() => {
     cp.setX(i, x * pleat); cp.setZ(i, z * pleat);
   }
   cushionGeo.computeVertexNormals();
-  const cushion = new THREE.Mesh(cushionGeo, toon('#d8928a'));
+  const cushion = new THREE.Mesh(cushionGeo, velvet(toon('#ffffff', { color: '#d8928a', map: clothWeave }), 0.16));
   const seam = new THREE.Mesh(new THREE.TorusGeometry(R0 + 0.002, 0.009, 8, 64), toon('#c47c74'));
   seam.rotation.x = Math.PI / 2; seam.position.y = H0 * 0.5;
   const button = new THREE.Mesh(new THREE.SphereGeometry(0.024, 16, 10), toon('#c47c74'));
@@ -2867,6 +2918,7 @@ const glow = (hex, k) => new THREE.MeshBasicMaterial({ color: new THREE.Color(he
 
 // radio: it is the music
 PROP_SETUP.radio = (pr, m) => {
+  findPart(m, 'radio')?.traverse((o) => { if (o.isMesh) o.material = surfaceNoise(o.material.clone(), 'walnut'); });
   pr.dial = findPart(m, 'dial'); pr.knobs = ['knobL', 'knobR'].map((n) => findPart(m, n)).filter(Boolean);
   if (pr.dial) pr.dialOff = pr.dial.material;
 };
@@ -3535,6 +3587,9 @@ function whitenPot(pot) {
     c.needsUpdate = true;
   });
 }
+function glazePot(pot) {
+  pot?.traverse((o) => { if (o.isMesh) o.material = surfaceNoise(o.material.clone(), 'glaze'); });
+}
 function adoptModel(item, model) {
   for (const c of [...item.group.children]) item.group.remove(c);
   unregister(item);
@@ -3546,6 +3601,7 @@ modelFor('monstera', 'models/monstera.glb').then((m) => {
   if (leaves.some((l) => !l)) return;
   adoptModel(monsteraItem, m);
   whitenPot(findPart(m, 'pot'));
+  glazePot(findPart(m, 'pot'));
   for (const l of leaves) l.scale.setScalar(0.001);
   monstera.leaves = leaves;
 });
@@ -3553,6 +3609,7 @@ modelFor('lemon', 'models/lemon.glb').then((m) => {
   const fruit = [...Array(6)].map((_, i) => findPart(m, `lemon${i}`));
   if (fruit.some((f) => !f)) return;
   adoptModel(lemonItem, m);
+  glazePot(findPart(m, 'pot'));
   for (const f of fruit) f.scale.setScalar(0.001);
   lemon.fruit = fruit;
 });
@@ -3560,6 +3617,7 @@ loadGLB('models/pothos.glb').then((scene0) => {
   if (!scene0) return;
   for (const p of pothos) {
     const m = toonify(scene0.clone(true));
+    glazePot(findPart(m, 'pot'));
     m.position.set(p.x, p.shelfTop, p.z);
     const vines = [];
     for (let k = 0; k < 6; k++) {
