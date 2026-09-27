@@ -3,7 +3,7 @@ const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--ena
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const errs = []; page.on('pageerror', (e) => errs.push(e.message)); page.on('dialog', (d) => { errs.push('dialog fired: ' + d.message()); d.dismiss(); });
 await page.addInitScript(() => localStorage.setItem('cat-room-album-v1', JSON.stringify({ box: { at: '2026-09-27T10:00:00Z', clock: '17:00', img: '" onerror="alert(1)' }, sunbath: {}, purr: { at: 'x' }, golden: { at: '2026-09-27T10:00:00Z', clock: '<b>x</b>', img: 'data:image/jpeg;base64,/9j/' } })));
-await page.goto('http://localhost:8126/index.html?t=12&paused=1&radio=0');
+await page.goto((process.env.BASE || 'http://localhost:8126/index.html') + '?t=12&paused=1&radio=0');
 await page.waitForFunction(() => window.__room && window.__room.frames > 5);
 console.log('loaded records', await page.evaluate(() => Object.keys(window.__room.album.got)));
 await page.click('#albumBtn'); await page.waitForTimeout(400);
