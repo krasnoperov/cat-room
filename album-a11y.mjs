@@ -1,0 +1,16 @@
+import { chromium } from '/home/alv/projects/makefx/node_modules/.pnpm/playwright@1.62.1/node_modules/playwright/index.mjs';
+const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const errs = []; page.on('pageerror', (e) => errs.push(e.message)); page.on('dialog', (d) => { errs.push('dialog fired: ' + d.message()); d.dismiss(); });
+await page.addInitScript(() => localStorage.setItem('cat-room-album-v1', JSON.stringify({ box: { at: '2026-09-27T10:00:00Z', clock: '17:00', img: '" onerror="alert(1)' }, sunbath: {}, purr: { at: 'x' }, golden: { at: '2026-09-27T10:00:00Z', clock: '<b>x</b>', img: 'data:image/jpeg;base64,/9j/' } })));
+await page.goto('http://localhost:8126/index.html?t=12&paused=1&radio=0');
+await page.waitForFunction(() => window.__room && window.__room.frames > 5);
+console.log('loaded records', await page.evaluate(() => Object.keys(window.__room.album.got)));
+await page.click('#albumBtn'); await page.waitForTimeout(400);
+for (let i = 0; i < 6; i++) await page.keyboard.press('Tab');
+console.log('focus inside album after 6 tabs:', await page.evaluate(() => document.getElementById('albumBack').contains(document.activeElement)));
+console.log('clock text escaped:', await page.evaluate(() => !document.querySelector('#albumGrid b b')));
+await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+console.log('closed, focus on', await page.evaluate(() => document.activeElement.id), 'page inert cleared', await page.evaluate(() => !document.querySelector('.dock').inert));
+console.log(errs.join('\n') || 'no errors');
+await browser.close();

@@ -3532,12 +3532,21 @@ const MOMENTS = [
 ];
 const ALBUM_KEY = 'cat-room-album-v1';
 const album = { got: {}, held: {}, busy: false, fresh: null };
-try { album.got = JSON.parse(localStorage.getItem(ALBUM_KEY) || '{}') || {}; } catch { album.got = {}; }
+/* only well-formed records survive a reload: a date, an in-room time, and a JPEG or nothing */
+const IMG_RE = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
+try {
+  const raw = JSON.parse(localStorage.getItem(ALBUM_KEY) || '{}') || {};
+  for (const m of MOMENTS) {
+    const r = raw[m.id];
+    if (!r || typeof r.at !== 'string' || Number.isNaN(Date.parse(r.at))) continue;
+    album.got[m.id] = { at: r.at, clock: typeof r.clock === 'string' ? r.clock.slice(0, 5) : '', img: typeof r.img === 'string' && IMG_RE.test(r.img) ? r.img : '' };
+  }
+} catch { album.got = {}; }
 function saveAlbum() {
   try { localStorage.setItem(ALBUM_KEY, JSON.stringify(album.got)); }
   catch {
     // out of room: keep the moments, drop the oldest pictures
-    const ids = Object.keys(album.got).sort((a, b) => album.got[a].at.localeCompare(album.got[b].at));
+    const ids = Object.keys(album.got).sort((a, b) => String(album.got[a].at || '').localeCompare(String(album.got[b].at || '')));
     for (const id of ids) { delete album.got[id].img; try { localStorage.setItem(ALBUM_KEY, JSON.stringify(album.got)); return; } catch { /* keep trimming */ } }
   }
 }
@@ -3565,11 +3574,13 @@ function shutter() {
 let catchTimer = 0;
 function capture(m) {
   album.busy = true;
-  const focus = (m.focus && m.focus()) || cat.pos.clone().add(new V3(0, 0.15, 0));
-  // wait one frame so the picture has the moment in it
+  // wait one frame so the picture has the moment in it, and frame it from that same frame's state
   requestAnimationFrame(() => {
     let img = '';
-    try { img = snapshot(focus); } catch { /* a picture is a bonus */ }
+    try {
+      const focus = (m.focus && m.focus()) || cat.pos.clone().add(new V3(0, 0.15, 0));
+      img = snapshot(focus);
+    } catch { /* a picture is a bonus */ }
     album.got[m.id] = { at: new Date().toISOString(), clock: clockLabel(), img };
     album.fresh = m.id;
     saveAlbum();
@@ -3620,7 +3631,12 @@ function renderAlbum() {
     if (got) {
       li.className = 'polaroid' + (album.fresh === m.id ? ' fresh' : '');
       const day = new Date(got.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-      li.innerHTML = `${got.img ? `<img src="${got.img}" alt="${esc(m.title)}">` : '<span class="ph" aria-hidden="true">✱</span>'}<b>${esc(m.title)}</b><small>${esc(got.clock)} in the room · ${esc(day)}</small>`;
+      li.innerHTML = `<b>${esc(m.title)}</b><small>${esc(got.clock)} in the room · ${esc(day)}</small>`;
+      if (got.img && IMG_RE.test(got.img)) {
+        const img = document.createElement('img');
+        img.src = got.img; img.alt = m.title;
+        li.prepend(img);
+      } else li.insertAdjacentHTML('afterbegin', '<span class="ph" aria-hidden="true">✱</span>');
     } else {
       li.className = 'polaroid empty';
       li.innerHTML = m.secret
@@ -3633,8 +3649,17 @@ function renderAlbum() {
 let albumReturn = null;
 function setAlbum(open) {
   $('albumBack').hidden = !open;
-  if (open) { albumReturn = document.activeElement; renderAlbum(); $('albumClose').focus(); $('catch').hidden = true; }
-  else { album.fresh = null; (albumReturn || $('albumBtn')).focus?.(); }
+  // the rest of the page is out of reach while the album is open
+  for (const el of document.body.children) if (el !== $('albumBack') && el.tagName !== 'SCRIPT') el.inert = open;
+  if (open) {
+    const from = document.activeElement;
+    albumReturn = from && from !== $('catch') && from !== document.body ? from : $('albumBtn');
+    renderAlbum(); $('albumClose').focus(); $('catch').hidden = true;
+  } else {
+    album.fresh = null;
+    const back = albumReturn && albumReturn.isConnected && albumReturn.offsetParent !== null ? albumReturn : $('albumBtn');
+    back.focus?.();
+  }
 }
 $('albumBtn').addEventListener('click', () => setAlbum(true));
 $('catch').addEventListener('click', () => setAlbum(true));
@@ -4466,7 +4491,7 @@ function frame(now) {
 }
 
 window.__room = {
-  frames: 0, album, MOMENTS, setAlbum, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, goTo, look, sunlit, lantern, windowState, monstera, lemon, papers, tea,
+  frames: 0, album, MOMENTS, setAlbum, roomEvents, weather, sun, fallen, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, goTo, look, sunlit, lantern, windowState, monstera, lemon, papers, tea,
   get: (name) => items.find((i) => i.name === name),
   move(name, x, z, rot = 0) { const it = this.get(name); Object.assign(it, { x, z, rot }); placeItem(it); itemsMoved(); },
   project(v) { const p = new V3(...v).project(camera); return [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight]; },
