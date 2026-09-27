@@ -241,6 +241,11 @@
   body.photo .catch, body.recording .catch, body.clean .catch, body.clean #albumBtn { display: none; }
   @media (max-width: 720px) { .catch { left: 16px; right: 16px; bottom: calc(188px + env(safe-area-inset-bottom, 0px)); } .album { padding: 16px 14px 12px; } .album-grid { grid-template-columns: repeat(2, 1fr); gap: 14px 10px; } }
   @media (prefers-reduced-motion: reduce) { .polaroid, .catch img { transform: none !important; } }
+  .bd { position: fixed; left: 40px; top: 36px; z-index: 12; display: flex; flex-direction: column; gap: 6px; padding: 14px 18px 14px 16px; border-radius: 14px; background: rgba(27, 24, 48, 0.72); color: #f6ead8; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); max-width: 560px; }
+  .bd-n { font: 600 12px/1 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.16em; color: #ffb27a; text-transform: uppercase; }
+  .bd b { font: 500 30px/1.1 var(--f-title); }
+  .bd em { font: 500 14px/1.35 'JetBrains Mono', ui-monospace, monospace; font-style: normal; color: #cfc4e0; }
+  .bd-wipe { position: fixed; top: 0; bottom: 0; width: 2px; margin-left: -1px; z-index: 11; background: #ffb27a; box-shadow: 0 0 12px rgba(255, 178, 122, 0.8); pointer-events: none; }
   .toast {
     position: fixed; left: 50%; top: calc(24px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
     padding: 10px 14px; border-radius: 12px; background: rgba(50, 43, 60, 0.9); color: #fbf5ec;
@@ -422,6 +427,8 @@
   <button id="recStop" type="button" class="pill">Stop</button>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<div class="bd" id="bd" hidden><span class="bd-n" id="bdN"></span><b id="bdTitle"></b><em id="bdSub"></em></div>
+<div class="bd-wipe" id="bdWipe" hidden></div>
 <div class="flash" id="flash" aria-hidden="true"></div>
 <button type="button" class="catch" id="catch" hidden aria-live="polite">
   <img id="catchImg" alt="">
@@ -2494,12 +2501,13 @@ const paintMat = new THREE.ShaderMaterial({
     uTexel: { value: new THREE.Vector2() }, uNear: { value: 0.1 }, uFar: { value: 100 },
     uFrustum: { value: new THREE.Vector4() }, uInk: { value: new THREE.Color('#4a323c') },
     uNight: { value: 0 }, uTilt: { value: 0 }, uFocus: { value: 0.45 }, uAO: { value: 1 }, uInkScale: { value: 1 },
+    uInkOn: { value: 1 }, uBloomOn: { value: 1 }, uGradeOn: { value: 1 },
     uSkyTop: { value: new THREE.Color('#bcd7ee') }, uSkyBottom: { value: new THREE.Color('#f1e9e2') },
   },
   vertexShader: quadVS,
   fragmentShader: `
     uniform sampler2D tColor, tNormal, tDepth, tBloom, tBloom2, tBloom3;
-    uniform vec2 uTexel; uniform float uNear, uFar, uNight, uTilt, uFocus, uAO, uInkScale;
+    uniform vec2 uTexel; uniform float uNear, uFar, uNight, uTilt, uFocus, uAO, uInkScale, uInkOn, uBloomOn, uGradeOn;
     uniform vec4 uFrustum; uniform vec3 uInk, uSkyTop, uSkyBottom;
     varying vec2 vUv;
     float D(vec2 uv){ return texture2D(tDepth, uv).x; }
@@ -2554,15 +2562,16 @@ const paintMat = new THREE.ShaderMaterial({
       c *= mix(vec3(1.0), vec3(0.8, 0.74, 0.9), ao);
       // ink tinted by the colour it outlines, like a darker pencil of the same hue
       vec3 inkTone = mix(c * 0.52, c * uInk * 1.9, 0.35);
-      c = mix(c, inkTone, edge * 0.62);
+      c = mix(c, inkTone, edge * 0.62 * uInkOn);
       // bloom, warmed a touch
       // a tight core from the fine level, a wide warm halo from the coarse ones
-      vec3 bl = texture2D(tBloom, vUv).rgb * 0.55 + texture2D(tBloom2, vUv).rgb * 0.35 + texture2D(tBloom3, vUv).rgb * 0.3;
+      vec3 bl = (texture2D(tBloom, vUv).rgb * 0.55 + texture2D(tBloom2, vUv).rgb * 0.35 + texture2D(tBloom3, vUv).rgb * 0.3) * uBloomOn;
       c += bl * vec3(1.0, 0.88, 0.74) * 0.6;
       float alpha = max(col.a, clamp(dot(bl, vec3(0.33)) * 0.6, 0.0, 1.0));
       // the sky is part of the picture, so saved stills and videos keep it
       c += mix(uSkyBottom, uSkyTop, vUv.y) * (1.0 - alpha);
       alpha = 1.0;
+      vec3 ungraded = c;
       // highlights roll off into warm instead of clipping to white (midtones untouched)
       float Lraw = dot(c, vec3(0.2126, 0.7152, 0.0722));
       if (Lraw > 0.72) {
@@ -2577,6 +2586,7 @@ const paintMat = new THREE.ShaderMaterial({
       // paper: slow fibres (the fine grain is added in the finishing pass)
       float fibre = vnoise(gl_FragCoord.xy * vec2(0.012, 0.03)) - 0.5;
       c *= 1.0 + fibre * 0.05;
+      c = mix(ungraded, c, uGradeOn);
       gl_FragColor = vec4(c, alpha);
       #include <colorspace_fragment>
     }`,
@@ -2592,13 +2602,14 @@ fxaaMat.uniforms.tDiffuse.value = finalRT.texture;
 /* finishing: a light unsharp mask that backs off at hard edges, a faint vignette, and
    paper grain weighted to the midtones (none in the sun patch, none in deep shade) */
 const finishMat = new THREE.ShaderMaterial({
-  uniforms: { tDiffuse: { value: fxaaRT.texture }, uTexel: { value: new THREE.Vector2() }, uAspect: { value: 1 }, uSharp: { value: 0.45 } },
+  uniforms: { tDiffuse: { value: fxaaRT.texture }, uTexel: { value: new THREE.Vector2() }, uAspect: { value: 1 }, uSharp: { value: 0.45 }, uFinishOn: { value: 1 } },
   vertexShader: quadVS,
   fragmentShader: `
-    uniform sampler2D tDiffuse; uniform vec2 uTexel; uniform float uAspect, uSharp; varying vec2 vUv;
+    uniform sampler2D tDiffuse; uniform vec2 uTexel; uniform float uAspect, uSharp, uFinishOn; varying vec2 vUv;
     float h12(vec2 p){ vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
     void main(){
       vec3 c = texture2D(tDiffuse, vUv).rgb;
+      vec3 raw = c;
       vec3 nb = 0.25 * (texture2D(tDiffuse, vUv + vec2(uTexel.x, 0.0)).rgb + texture2D(tDiffuse, vUv - vec2(uTexel.x, 0.0)).rgb
                       + texture2D(tDiffuse, vUv + vec2(0.0, uTexel.y)).rgb + texture2D(tDiffuse, vUv - vec2(0.0, uTexel.y)).rgb);
       float edge = max(max(abs(c.r - nb.r), abs(c.g - nb.g)), abs(c.b - nb.b));
@@ -2606,6 +2617,7 @@ const finishMat = new THREE.ShaderMaterial({
       c *= mix(1.0, 0.88, smoothstep(0.55, 1.25, length((vUv - 0.5) * vec2(uAspect, 1.0)) * 1.25));
       float l = dot(c, vec3(0.299, 0.587, 0.114));
       c *= 1.0 + (h12(gl_FragCoord.xy + 17.0) - 0.5) * 0.06 * (0.3 + 0.7 * (1.0 - abs(2.0 * clamp(l, 0.0, 1.0) - 1.0)));
+      c = mix(raw, c, uFinishOn);
       gl_FragColor = vec4(c, 1.0);
       #include <colorspace_fragment>
     }`,
@@ -2666,7 +2678,7 @@ function sizeTargets() {
 }
 const swapped = [];
 const look = { tilt: 0, tiltTarget: 0, focus: 0.45 };
-function renderFrame() {
+function paintFrame() {
   const u = paintMat.uniforms;
   u.uNear.value = camera.near; u.uFar.value = camera.far;
   u.uFrustum.value.set(camera.left / camera.zoom, camera.right / camera.zoom, camera.bottom / camera.zoom, camera.top / camera.zoom);
@@ -2676,7 +2688,10 @@ function renderFrame() {
 
   renderer.setRenderTarget(colorRT);
   renderer.clear();
+  if (BD.clay) { camera.layers.set(0); scene.overrideMaterial = BD.clayMat; }
   renderer.render(scene, camera);
+  if (BD.clay) { scene.overrideMaterial = null; camera.layers.enable(1); }
+  BD.stats.tris = renderer.info.render.triangles; BD.stats.calls = renderer.info.render.calls;
 
   camera.layers.set(0);
   scene.traverseVisible((o) => { if (o.isMesh && o.layers.test(camera.layers)) { swapped.push(o, o.material); o.material = normalMatFor(o.material); } });
@@ -2711,7 +2726,171 @@ function renderFrame() {
   paintMat.uniforms.uInkScale.value = clamp(cssPerUnit / 150, 0.55, 1.35);
   runPass(paintMat, finalRT);
   runPass(fxaaMat, fxaaRT);
-  runPass(finishMat, null);
+  toScreen(() => runPass(finishMat, null));
+}
+
+/* ===================================================================
+   BREAKDOWN: the room taken apart for a film (?breakdown=1). Each stage
+   shows one layer of the picture; a wipe compares two; the room can fly
+   apart and back together; the cat's skeleton and the painted window can
+   be shown. Driven frame by frame from window.__room.bd.
+   =================================================================== */
+const BD = {
+  on: params.has('breakdown'),
+  stage: { view: 'final' }, left: null, wipeX: null, clipX: null,
+  assemble: 1, bones: 0, cut: null, portal: 0, clay: false,
+  stats: { tris: 0, calls: 0 },
+  clayMat: new THREE.MeshToonMaterial({ color: '#8f8a93', gradientMap: gradient }),
+  wireMat: new THREE.MeshBasicMaterial({ color: '#9cc3ff', wireframe: true, transparent: true, opacity: 0.55 }),
+};
+/* the final pass draws into the left part of the screen when a wipe is on */
+function toScreen(fn) {
+  if (BD.clipX == null) { fn(); return; }
+  renderer.setScissorTest(true);
+  renderer.setScissor(0, 0, Math.max(0, BD.clipX * innerWidth), innerHeight);
+  fn();
+  renderer.setScissorTest(false);
+}
+const showMat = new THREE.ShaderMaterial({
+  uniforms: { tN: { value: normalRT.texture }, tD: { value: normalRT.depthTexture }, uMode: { value: 0 }, uD0: { value: 0.17 }, uD1: { value: 0.06 }, uA: { value: new THREE.Color('#2b2440') }, uB: { value: new THREE.Color('#f6ead8') } },
+  vertexShader: quadVS,
+  fragmentShader: `uniform sampler2D tN, tD; uniform float uMode, uD0, uD1; uniform vec3 uA, uB; varying vec2 vUv;
+    void main(){
+      float d = texture2D(tD, vUv).x;
+      vec3 c;
+      if (uMode < 0.5) { c = d > 0.9999 ? vec3(0.12, 0.11, 0.17) : texture2D(tN, vUv).rgb; }
+      else { float v = d > 0.9999 ? 0.0 : 1.0 - clamp((d - uD0) / uD1, 0.0, 1.0); c = mix(uA, uB, pow(v, 0.8)); }
+      gl_FragColor = vec4(c, 1.0);
+      #include <colorspace_fragment>
+    }`,
+  depthTest: false, depthWrite: false,
+});
+function applyFlags(st) {
+  const u = paintMat.uniforms;
+  u.uInkOn.value = st.ink ?? 1; u.uAO.value = st.ao ?? 1; u.uBloomOn.value = st.bloom ?? 1; u.uGradeOn.value = st.grade ?? 1;
+  finishMat.uniforms.uFinishOn.value = st.finish ?? 1;
+  BD.clay = !!st.clay;
+}
+function drawStage(st) {
+  applyFlags(st);
+  if (st.view === 'wire') {
+    camera.layers.set(0);
+    scene.overrideMaterial = BD.wireMat;
+    renderer.setRenderTarget(null);
+    renderer.setClearColor(0x1b1830, 1);
+    toScreen(() => { renderer.clear(); renderer.render(scene, camera); });
+    renderer.setClearColor(0x000000, 0);
+    scene.overrideMaterial = null;
+    camera.layers.enable(1);
+    return;
+  }
+  paintFrame();
+  if (st.view === 'normals' || st.view === 'depth') {
+    showMat.uniforms.uMode.value = st.view === 'depth' ? 1 : 0;
+    toScreen(() => runPass(showMat, null));
+  }
+}
+/* flying apart: every part lifts and drifts out from the middle, in turn */
+const bdHome = [];
+function bdParts() {
+  const set = new Set([floor, ...Object.values(wallGroups), windowGroup, wallStuff, ...items.map((i) => i.group)]);
+  return [...set].filter((g) => g && g.parent);
+}
+function bdExplode() {
+  bdHome.length = 0;
+  if (BD.assemble >= 1) return;
+  const parts = bdParts(), n = parts.length;
+  parts.forEach((g, k) => {
+    bdHome.push([g, g.position.clone(), g.rotation.y]);
+    const d = (k / n) * 0.65, t = smooth(d, d + 0.35, BD.assemble), away = 1 - t;
+    const c = new V3().setFromMatrixPosition(g.matrixWorld);
+    const out = new V3(c.x, 0, c.z); if (out.lengthSq() < 1e-4) out.set(0.3, 0, 0.3);
+    out.normalize();
+    g.position.x += out.x * 1.1 * away; g.position.z += out.z * 1.1 * away;
+    g.position.y += (1.6 + (k % 5) * 0.35) * away;
+    g.rotation.y += (k % 2 ? 0.5 : -0.5) * away;
+  });
+}
+function bdRestore() { for (const [g, p, ry] of bdHome) { g.position.copy(p); g.rotation.y = ry; } bdHome.length = 0; }
+/* the cat's skeleton, drawn over the finished frame: a stick and a ball per bone */
+const bdSkelScene = new THREE.Scene();
+const bdJointMat = new THREE.MeshBasicMaterial({ color: '#ffb27a', depthTest: false, transparent: true });
+const bdBoneMat = new THREE.MeshBasicMaterial({ color: '#ff7a3d', depthTest: false, transparent: true });
+const bdJointGeo = new THREE.SphereGeometry(1, 12, 8), bdBoneGeo = new THREE.CylinderGeometry(1, 1, 1, 8).translate(0, 0.5, 0);
+let bdSkel = null;
+function bdBones() {
+  if (!cat.model || BD.bones < 0.01) { if (bdSkel) bdSkel.visible = false; return; }
+  if (!bdSkel) {
+    bdSkel = { visible: true, parts: [] };
+    const bones = Object.values(cat.bones);
+    for (const bone of bones) {
+      const j = new THREE.Mesh(bdJointGeo, bdJointMat), st = new THREE.Mesh(bdBoneGeo, bdBoneMat);
+      j.renderOrder = 2; st.renderOrder = 1;
+      bdSkelScene.add(j, st);
+      bdSkel.parts.push({ bone, j, st });
+    }
+  }
+  bdSkel.visible = true;
+  bdJointMat.opacity = bdBoneMat.opacity = BD.bones;
+  const a = new V3(), b = new V3(), dir = new V3(), up = new V3(0, 1, 0);
+  const k = Math.max(0.6, 2.2 / Math.max(1, view.zoom)); // stay readable from far away
+  for (const { bone, j, st } of bdSkel.parts) {
+    bone.getWorldPosition(a);
+    j.position.copy(a); j.scale.setScalar(0.009 * k);
+    const parentBone = bone.parent && bone.parent.isBone ? bone.parent : null;
+    st.visible = !!parentBone;
+    if (!parentBone) continue;
+    parentBone.getWorldPosition(b);
+    dir.subVectors(a, b);
+    const len = dir.length();
+    st.position.copy(b);
+    st.quaternion.setFromUnitVectors(up, dir.normalize());
+    st.scale.set(0.004 * k, len, 0.004 * k);
+  }
+}
+function bdDrawBones() {
+  if (!bdSkel || !bdSkel.visible) return;
+  renderer.autoClear = false;
+  renderer.setRenderTarget(null);
+  toScreen(() => renderer.render(bdSkelScene, camera));
+  renderer.autoClear = true;
+}
+let bdPortal = -1;
+function bdWindow() {
+  if (BD.portal === bdPortal) return;
+  bdPortal = BD.portal;
+  const off = BD.portal > 0.5;
+  for (const p of viewPlanes) { p.material.stencilWrite = !off; p.material.stencilFunc = off ? THREE.AlwaysStencilFunc : THREE.EqualStencilFunc; }
+}
+function renderFrame() {
+  if (!BD.on) { paintFrame(); return; }
+  bdBones();
+  bdWindow();
+  bdExplode();
+  scene.updateMatrixWorld(true);
+  BD.clipX = null;
+  drawStage(BD.stage);
+  bdDrawBones();
+  if (BD.left && BD.wipeX != null && BD.wipeX > 0) { BD.clipX = BD.wipeX; drawStage(BD.left); bdDrawBones(); BD.clipX = null; }
+  applyFlags({});
+  bdRestore();
+  const w = $('bdWipe');
+  if (w) { w.hidden = !(BD.left && BD.wipeX > 0 && BD.wipeX < 1); w.style.left = (BD.wipeX * 100) + '%'; }
+}
+function bdLabel(n, title, sub) {
+  const el = $('bd');
+  if (!el) return;
+  el.hidden = !title;
+  $('bdN').textContent = n || ''; $('bdTitle').textContent = title || ''; $('bdSub').textContent = sub || '';
+}
+function bdCount() {
+  let tris = 0;
+  scene.traverseVisible((o) => {
+    if (!o.isMesh || !o.geometry) return;
+    const g = o.geometry;
+    tris += (g.index ? g.index.count : (g.attributes.position?.count || 0)) / 3;
+  });
+  return Math.round(tris);
 }
 
 /* ===================================================================
@@ -3871,7 +4050,7 @@ const backCut = H; // back walls stand full height; only the near walls are cut 
 function updateWalls(dt) {
   for (const k of WALL_KEYS) {
     const w = WALLS[k];
-    w.target = isNear(k) ? NEAR_CUT : backCut;
+    w.target = BD.on && BD.cut != null ? BD.cut : isNear(k) ? NEAR_CUT : backCut;
     w.cut = lerp(w.cut, w.target, dt < 0 ? 1 : damp(dt, 9));
     if (Math.abs(w.cut - w.target) < 0.002) w.cut = w.target;
     if (Math.abs(w.cut - w.built) > 0.0005) buildWall(k);
@@ -4650,7 +4829,7 @@ function frame(now) {
 }
 
 window.__room = {
-  frames: 0, album, MOMENTS, setAlbum, roomEvents, weather, sun, fallen, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, goTo, look, sunlit, lantern, windowState, monstera, lemon, papers, tea,
+  frames: 0, bd: BD, bdLabel, bdCount, album, MOMENTS, setAlbum, roomEvents, weather, sun, fallen, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, goTo, look, sunlit, lantern, windowState, monstera, lemon, papers, tea,
   get: (name) => items.find((i) => i.name === name),
   move(name, x, z, rot = 0) { const it = this.get(name); Object.assign(it, { x, z, rot }); placeItem(it); itemsMoved(); },
   project(v) { const p = new V3(...v).project(camera); return [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight]; },
