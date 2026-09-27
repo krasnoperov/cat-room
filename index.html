@@ -3479,7 +3479,8 @@ function stepPounce(dt) {
 }
 
 /* ---------- small sounds, made on the spot ---------- */
-function sfxCtx() { if (!radio.ctx) buildRadio(); return radio.ctx && radio.ctx.state === 'running' ? radio.ctx : null; }
+// the room's own sounds share the radio's context but not its switch: they play whenever sound has been woken
+function sfxCtx() { return radio.ctx && radio.ctx.state === 'running' ? radio.ctx : null; }
 function ringChime(strength) {
   roomEvents.chime = { t: time };
   const ctx = sfxCtx(); if (!ctx) return;
@@ -3908,8 +3909,7 @@ function snapshot(focus) {
   return c.toDataURL('image/jpeg', 0.84);
 }
 function shutter() {
-  const ctx = radio.ctx && radio.ctx.state === 'running' ? radio.ctx : null;
-  if (!ctx) return;
+  const ctx = sfxCtx(); if (!ctx) return;
   const t0 = ctx.currentTime, n = ctx.createBufferSource(), buf = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate), d = buf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = (((i * 7919) % 997) / 498.5 - 1) * Math.pow(1 - i / d.length, 3); // deterministic click
   n.buffer = buf;
@@ -4326,7 +4326,7 @@ function startRecording() {
   if (!canvas.captureStream || !window.MediaRecorder) { toast('This browser cannot record the canvas'); return; }
   const type = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/webm;codecs=vp9,opus', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t)) || '';
   const stream = canvas.captureStream(30);
-  if (radio.on) {
+  if (sfxCtx()) {
     radio.dest = radio.dest || radio.ctx.createMediaStreamDestination();
     radio.master.connect(radio.dest);
     stream.addTrack(radio.dest.stream.getAudioTracks()[0]);
@@ -4476,8 +4476,10 @@ const TRACKS = [
 const fitsNow = (t) => (weather.rain ? !!t.rain : !t.rain && t.hours && ((clock.h >= t.hours[0] && clock.h < t.hours[1]) || (clock.h + 24 >= t.hours[0] && clock.h + 24 < t.hours[1])));
 const LAYERS = ['amb-city-day', 'amb-city-night', 'amb-rain', 'purr'];
 const media = 'mediaSession' in navigator ? navigator.mediaSession : null;
-const radio = { on: false, ctx: null, el: null, master: null, layers: {}, i: -1, dest: null };
-function buildRadio() {
+const radio = { on: false, ctx: null, el: null, master: null, layers: {}, i: -1, back: [], dest: null };
+/* One audio context for the whole room. The radio switch only plays or pauses
+   the music; the city, the rain, the purr, the birds and the chime go on. */
+function buildAudio() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return false;
   const ctx = radio.ctx = new AC();
@@ -4488,6 +4490,7 @@ function buildRadio() {
   radio.el.preload = 'auto';
   radio.el.addEventListener('ended', nextTrack);
   radio.el.addEventListener('error', () => { if (radio.on) setTimeout(nextTrack, 800); });
+  for (const e of ['loadedmetadata', 'play', 'pause', 'seeked']) radio.el.addEventListener(e, mediaPosition);
   const music = ctx.createGain();
   music.gain.value = 0.8;
   radio.panner = ctx.createStereoPanner();
@@ -4505,15 +4508,40 @@ function buildRadio() {
   }
   return true;
 }
+/* Browsers only let sound start from a gesture, so every touch wakes it
+   (again, after iOS or a hidden tab has put it to sleep). */
+function wakeAudio() {
+  if (!radio.ctx && !buildAudio()) return;
+  if (radio.ctx.state !== 'running' && !document.hidden) radio.ctx.resume().catch(() => {});
+}
+addEventListener('pointerdown', wakeAudio, true);
+addEventListener('keydown', wakeAudio, true);
+// a hidden tab keeps the music playing, but not the room around it
+document.addEventListener('visibilitychange', () => {
+  if (!radio.ctx) return;
+  if (!document.hidden) radio.ctx.resume().catch(() => {});
+  else if (!radio.on) radio.ctx.suspend();
+});
+function playTrack(i) {
+  radio.i = i;
+  radio.el.src = TRACKS[i].src;
+  $('trackTitle').textContent = TRACKS[i].title;
+  mediaTrack();
+  if (radio.on) radio.el.play().catch(() => {});
+}
 function nextTrack() {
+  if (!radio.el && !buildAudio()) return;
   const pool = TRACKS.map((t, i) => i).filter((i) => i !== radio.i);
   const fit = pool.filter((i) => fitsNow(TRACKS[i]));
   const choice = (fit.length ? fit : pool)[Math.floor(Math.random() * (fit.length || pool.length))] ?? 0;
-  radio.i = choice;
-  radio.el.src = TRACKS[choice].src;
-  $('trackTitle').textContent = TRACKS[choice].title;
-  mediaTrack();
-  if (radio.on) radio.el.play().catch(() => {});
+  if (radio.i >= 0) radio.back = [...radio.back, radio.i].slice(-20);
+  playTrack(choice);
+}
+// back to the start of this track, or, near its start, to the one before
+function prevTrack() {
+  if (!radio.el) return;
+  if (radio.el.currentTime > 3 || !radio.back.length) { radio.el.currentTime = 0; return; }
+  playTrack(radio.back.pop());
 }
 /* The OS media controls (lock screen, headset keys, browser media hub) show
    and steer the radio like any other player. */
@@ -4524,31 +4552,42 @@ function mediaTrack() {
     artwork: [192, 512].map((n) => ({ src: `img/icon-${n}.png`, sizes: `${n}x${n}`, type: 'image/png' })),
   });
 }
+function mediaPosition() {
+  const el = radio.el;
+  if (!media?.setPositionState || !el || !Number.isFinite(el.duration)) return;
+  try { media.setPositionState({ duration: el.duration, playbackRate: el.playbackRate, position: Math.min(el.currentTime, el.duration) }); } catch { /* not ready yet */ }
+}
+function seekBy(d) { if (radio.el && Number.isFinite(radio.el.duration)) radio.el.currentTime = clamp(radio.el.currentTime + d, 0, radio.el.duration); }
 if (media) {
   const act = (name, fn) => { try { media.setActionHandler(name, fn); } catch { /* action not supported */ } };
   act('play', () => { if (props.some((p) => p.type === 'radio')) { setRadio(true); rememberRadio(); } });
   act('pause', () => { setRadio(false); rememberRadio(); });
   act('stop', () => { setRadio(false); rememberRadio(); });
-  act('nexttrack', () => { if (radio.on) nextTrack(); });
+  act('nexttrack', nextTrack);
+  act('previoustrack', prevTrack);
+  act('seekto', (e) => { if (radio.el && Number.isFinite(e.seekTime)) radio.el.currentTime = e.seekTime; });
+  act('seekbackward', (e) => seekBy(-(e.seekOffset || 10)));
+  act('seekforward', (e) => seekBy(e.seekOffset || 10));
 }
 async function setRadio(on) {
-  if (on && !radio.ctx && !buildRadio()) { toast('This browser cannot play the radio'); return; }
+  if (on && !radio.ctx && !buildAudio()) { toast('This browser cannot play the radio'); return; }
   radio.on = on;
   $('radio').hidden = !on;
   if (media) media.playbackState = on ? 'playing' : 'paused';
   if (on) {
     await radio.ctx.resume();
+    if (!radio.on) return; // switched off again while waking
     if (radio.i < 0) nextTrack(); else radio.el.play().catch(() => {});
-  } else if (radio.ctx) {
+  } else if (radio.el) {
     radio.el.pause();
-    radio.ctx.suspend();
+    if (document.hidden) radio.ctx.suspend(); // paused from the lock screen: the hidden room goes quiet too
   }
 }
 function rememberRadio() {
   try { localStorage.setItem('cat-room-radio', radio.on ? 'on' : 'off'); } catch { /* nothing to remember in private mode */ }
 }
-/* The radio on the shelf plays unless someone switched it off. Browsers only
-   let sound start from a gesture, so it waits, visibly on, for the first touch. */
+/* The radio on the shelf plays unless someone switched it off. It waits,
+   visibly on, for the first touch. */
 function armRadio() {
   if (!props.some((p) => p.type === 'radio')) return;
   let off = params.has('fixed') || params.get('radio') === '0';
@@ -4567,7 +4606,7 @@ function armRadio() {
 }
 $('nextTrack').addEventListener('click', nextTrack);
 function stepAudio() {
-  if (!radio.on || !radio.ctx) return;
+  if (!radio.ctx) return;
   const t = radio.ctx.currentTime, open = windowState.k, clear = 1 - weather.k;
   const to = (name, v) => radio.layers[name]?.gain.setTargetAtTime(v, t, 0.8);
   to('amb-city-day', 0.55 * open * (1 - sun.night) * clear);
