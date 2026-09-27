@@ -90,7 +90,8 @@
   body.photo .world, body.recording .world { opacity: 0; pointer-events: none; }
   body.clean .world { display: none; }
   @media (max-width: 720px) {
-    .world { left: 50%; top: auto; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); flex-direction: row; gap: 18px; }
+    /* a row spread edge to edge in the empty floor space under the room, clear of the dock */
+    .world { left: 16px; right: 16px; top: auto; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); transform: none; flex-direction: row; justify-content: space-between; gap: 0; }
     .orb-face { width: 48px; height: 48px; }
   }
   body.photo .brand, body.photo .hint, body.photo .dock,
@@ -192,7 +193,7 @@
   #shelfBtn { display: none; }
   @media (max-width: 979px) {
     #shelfBtn { display: flex; }
-    .dresser { top: auto; bottom: calc(190px + env(safe-area-inset-bottom, 0px)); right: 16px; width: min(340px, calc(100vw - 32px)); max-height: calc(100vh - 346px); }
+    .dresser { top: auto; bottom: calc(160px + env(safe-area-inset-bottom, 0px)); right: 16px; width: min(340px, calc(100vw - 32px)); max-height: calc(100vh - 346px); }
     .dresser-close { display: grid; }
     .dresser-fold { display: none; }
     .dresser[hidden] { display: none !important; }
@@ -283,8 +284,12 @@
     .brand h1 { font-size: 24px; }
     .brand p { font-size: 13px; max-width: 240px; }
     .hint { display: none; }
-    .dock { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); gap: 2px; flex-wrap: wrap; justify-content: center; border-radius: 22px; width: calc(100vw - 32px); }
-    #time { width: auto; flex: 1 1 140px; }
+    /* one line: compact buttons, the time slider takes whatever is left */
+    .dock { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); gap: 0; padding: 6px; flex-wrap: nowrap; width: calc(100vw - 32px); }
+    .dock button { width: 32px; height: 32px; }
+    .dock svg { width: 17px; height: 17px; }
+    .clock { min-width: 42px; font-size: 13.5px; }
+    #time { width: auto; min-width: 48px; flex: 1 1 auto; margin: 0 4px; }
     .sep { display: none; }
   }
 </style>
@@ -3417,7 +3422,9 @@ function resize() {
     const shift = (DRESSER_W / 2) * (2 * half * aspect) / w;
     camera.left += shift; camera.right += shift;
   }
-  camera.top = half * 1.02; camera.bottom = -half * 0.98;
+  // phones: the room sits a little higher, clear of the controls under it
+  const lift = w < 720 && aspect < 1 ? 0.1 : 0;
+  camera.top = half * (1.02 - lift); camera.bottom = -half * (0.98 + lift);
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', resize);
