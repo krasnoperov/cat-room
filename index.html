@@ -223,7 +223,6 @@
   input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2px solid var(--accent); }
   input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
   #time { width: 220px; }
-  #cut { width: 90px; }
 
   .tip {
     position: fixed; left: 0; top: 0; pointer-events: none;
@@ -292,8 +291,6 @@
   <button id="rotR" type="button" aria-label="Turn the room right">
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 8.5A6 6 0 1 0 15 13"/><path d="M16 4v4.5h-4.5"/></svg>
   </button>
-  <span class="sep"></span>
-  <label class="field">Walls <input id="cut" type="range" min="0.3" max="2.7" step="0.01" value="2.7" aria-label="Wall height"></label>
   <span class="sep"></span>
   <button id="shelfBtn" type="button" aria-label="Add things to the room" aria-expanded="false" aria-controls="shelf" title="Add things">
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M10 4.5v11M4.5 10h11"/></svg>
@@ -3381,7 +3378,7 @@ function isNear(k) {
   const o = { W: [-1, 0], E: [1, 0], N: [0, -1], S: [0, 1] }[k];
   return cx * o[0] + cz * o[1] > 0.05;
 }
-let backCut = num('cut', H);
+const backCut = H; // back walls stand full height; only the near walls are cut to look in
 function updateWalls(dt) {
   for (const k of WALL_KEYS) {
     const w = WALLS[k];
@@ -3615,11 +3612,9 @@ function dropCat() {
 if (params.has('clean')) for (const el of document.querySelectorAll('.brand, .hint, .dock')) el.hidden = true;
 if (params.has('clean')) document.body.classList.add('clean');
 const clock = { h: num('t', 17), playing: num('paused', 0) < 0.5 };
-const timeInput = $('time'), cutInput = $('cut');
+const timeInput = $('time');
 timeInput.value = Math.round(clock.h * 60);
-cutInput.value = backCut;
 timeInput.addEventListener('input', () => { clock.h = timeInput.value / 60; });
-cutInput.addEventListener('input', () => { backCut = parseFloat(cutInput.value); });
 /* ---------- photo mode, a recorded day, a shareable room ---------- */
 let toastTimer = 0;
 function toast(msg) {
@@ -3713,7 +3708,7 @@ function propState(pr) {
 }
 function roomState() {
   return {
-    v: 1, r: weather.rain ? 1 : 0, t: +clock.h.toFixed(2), a: Math.round((view.target / DEG - 45) / 90), c: +backCut.toFixed(2), o: windowState.open ? 1 : 0,
+    v: 1, r: weather.rain ? 1 : 0, t: +clock.h.toFixed(2), a: Math.round((view.target / DEG - 45) / 90), o: windowState.open ? 1 : 0,
     g: [monstera.growth, lemon.growth].map((v) => +v.toFixed(3)),
     i: movable().map((it) => [it.name, +it.x.toFixed(3), +(it.kind === 'wall' ? it.group.position.y : it.z).toFixed(3), it.rot]),
     p: props.map(propState),
@@ -3736,7 +3731,6 @@ function applyRoom(st) {
   }
   clock.h = ((+st.t % 24) + 24) % 24;
   view.target = view.angle = (45 + 90 * (st.a | 0)) * DEG;
-  backCut = clamp(+st.c || H, 0.3, H);
   windowState.open = !!st.o; windowState.k = st.o ? 1 : 0;
   weather.rain = !!st.r; weather.k = st.r ? 1 : 0;
   if (Array.isArray(st.g)) { monstera.growth = clamp(+st.g[0] || 0, 0, 1); lemon.growth = clamp(+st.g[1] || 0, 0, 1); }
@@ -3941,7 +3935,7 @@ let last = performance.now(), time = 0, grownLast = -1, skyTopNow = '#bcd7ee';
 const FIXED = params.has('fixed');
 const SPEED = num('speed', 1 / 45);
 const restored = restoreRoom();
-if (restored) { timeInput.value = Math.round(clock.h * 60); cutInput.value = backCut; setRain(weather.rain); }
+if (restored) { timeInput.value = Math.round(clock.h * 60); setRain(weather.rain); }
 if (!props.some((p) => p.type === 'radio') && !roomHadProps) addProp('radio', { host: 'Bookcase', x: 0.2, y: 0.8, z: 0.01 });
 armRadio();
 syncDresser();

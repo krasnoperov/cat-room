@@ -86,8 +86,8 @@ sheet) with its own behaviour:
 
 - Drag furniture on the floor, prints along the wall; `R` or double-click
   turns a piece. Pick up the cat and put it somewhere else.
-- Turn the room in quarter steps (`Q` / `E`), lower the walls to look in
-  from any side, scrub the time of day, pause time (`Space`).
+- Turn the room in quarter steps (`Q` / `E`); the walls nearest you drop
+  away on their own. Scrub the time of day, pause time (`Space`).
 - **Photo mode**: tilt-shift miniature focus, tap to focus, save a PNG.
 - **Record a day**: 24 hours in 24 seconds, saved as MP4 or WebM, with the radio if it is on.
 - **Share**: copies a link that opens this exact room. The room also
@@ -114,7 +114,7 @@ the room with light.
 
 ## URL parameters (for stills and video)
 
-`t` hour · `rot` quarter turns · `cut` wall height · `open` 0/1 ·
+`t` hour · `rot` quarter turns · `open` 0/1 ·
 `rain` 0/1 · `grow` plant growth 0–1 · `zoom` · `paused=1` · `clean=1`
 hides the UI · `fixed=1` renders only on `window.__room.tick()`, one
 1/30 s step at a time · `speed` hours per second.

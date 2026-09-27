@@ -29,9 +29,10 @@ await page.click('#share');
 await page.waitForTimeout(300);
 const url = await page.evaluate(() => navigator.clipboard.readText());
 console.log('link length:', url.length, 'toast:', await page.textContent('#toast'));
+await page.close(); // one rendering tab at a time on a software GPU
 const p2 = await ctx.newPage();
 await p2.goto(url);
-await p2.waitForFunction(() => window.__room && window.__room.frames > 5);
+await p2.waitForFunction(() => window.__room && window.__room.frames > 5, null, { timeout: 90000 });
 console.log('desk after reload:', JSON.stringify(await p2.evaluate(() => { const d = window.__room.get('Desk'); return [d.x, d.z, d.rot]; })));
 console.log(logs.join('\n') || 'no errors');
 await browser.close();
