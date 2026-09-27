@@ -1441,12 +1441,12 @@ const books = [];
 const bookcaseItem = (() => {
   const g = new THREE.Group();
   const W = 0.9, D = 0.3, Hh = 0.8, t = 0.03;
-  const side = (x) => { const m = new THREE.Mesh(new THREE.BoxGeometry(t, Hh, D), M.woodLight); m.position.set(x, Hh / 2, 0); return m; };
+  const side = (x) => { const m = new THREE.Mesh(woodBox(t, Hh, D, 0.006), M.woodLight); m.position.set(x, Hh / 2, 0); return m; };
   g.add(side(-W / 2 + t / 2), side(W / 2 - t / 2));
   for (const y of [t / 2, Hh / 2, Hh - t / 2]) {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(W, t, D), M.woodLight); b.position.y = y; g.add(b);
+    const b = new THREE.Mesh(woodBox(W, t, D, 0.006), M.woodLight); b.position.y = y; g.add(b);
   }
-  const back = new THREE.Mesh(new THREE.BoxGeometry(W, Hh, 0.01), M.wood); back.position.set(0, Hh / 2, -D / 2 + 0.005); g.add(back);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(W, Hh, 0.01), toon('#c4895a')); back.position.set(0, Hh / 2, -D / 2 + 0.005); g.add(back);
   const spines = tex('img/books.webp');
   const colors = ['#8fae8a', '#d2775a', '#efe3cb', '#34466b', '#e2b448', '#e2a3ad', '#8fae8a', '#d2775a', '#efe3cb', '#34466b', '#e2b448', '#e2a3ad', '#8fae8a', '#d2775a'];
   const r = rng(4);
