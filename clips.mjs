@@ -8,9 +8,24 @@ const clips = [
   // the hook: extreme close on the sleeping cat, a miniature's shallow focus, then one long pull back to the whole room
   ['c00-hook-pullback', 't=16.3&speed=0.015', 240, `const r=window.__room; r.view.zoom=9; r.view.center.set(-1.72,0.66,-0.3); r.resize();`,
     `const e=${E(55, 215)}; r.view.zoom=9*Math.pow(1.22/9,e); r.view.center.set(-1.72+1.72*e,0.66+0.24*e,-0.3+0.3*e); r.resize(); r.look.tilt=r.look.tiltTarget=0.9*(1-e); r.look.focus=0.5; if(i===28) r.items.find(o=>o.name==='Cat').click();`],
-  // the finale: night, lamps on, the room swings round to its door, then recedes into the sky
+  // the finale: night, lamps on, the room recedes into the sky
   ['c12-finale', 't=21.9&speed=0.004', 240, `const r=window.__room; r.radio.on=true; r.addProp('floorLamp',{x:1.62,z:-1.15}); r.addProp('catTree',{x:-0.25,z:1.3}); r.addProp('windChime'); r.addProp('candle',{host:'Desk',x:-0.3,y:0.755,z:-0.1}); r.view.zoom=1.3; r.view.center.set(0,0.9,0); r.resize();`,
-    `const l=r.props.find(p=>p.type==='floorLamp'); if(l) l.on=true; const a=(45+62*${E(0, 115)})*Math.PI/180; r.view.angle=r.view.target=a; const e=${E(35, 125)}; r.view.zoom=1.3*Math.pow(0.66/1.3,e); r.view.center.set(0,0.9+1.75*e,0); r.resize();`],
+    `const l=r.props.find(p=>p.type==='floorLamp'); if(l) l.on=true; const e=${E(35, 125)}; r.view.zoom=1.3*Math.pow(0.66/1.3,e); r.view.center.set(0,0.9+1.75*e,0); r.resize();`],
+  // the album: the room catches a moment (flash, polaroid card), then the album opens with the pictures it already took
+  ['c13-album', 'ui=1&t=18.3&speed=0.01&radio=0', 180, `const r=window.__room, c=r.cat; c.decideT=1e9; r.view.zoom=1.2; r.view.center.set(0,0.9,0); r.resize();
+    const snap=(id,n=4)=>{ r.tick(n); r.snapMoment(id); };
+    r.clock.h=16.4; snap('sunbath',6);
+    r.addProp('box',{x:0.35,z:0.55}); r.tick(2); c.pos.set(0.35,0.02,0.55); c.inBox=true; c.state='sit'; snap('box',8);
+    r.removeProp(r.props.find(p=>p.type==='box')); c.inBox=false;
+    r.weather.rain=true; r.weather.k=1; c.pos.set(-1.72,0.52,-0.3); c.state='sit'; snap('rainwatch',12); r.weather.rain=false; r.weather.k=0; r.weather.wet=0;
+    r.clock.h=22; r.lantern.auto=false; r.lantern.on=true; c.pos.set(-0.55,0,-0.55); c.state='sleep'; snap('lantern',12);
+    r.lantern.auto=true; r.clock.h=16.4; r.tea.temp=24; snap('tea',4); r.tea.temp=80;
+    r.lemon.growth=1; snap('harvest',40);
+    c.pos.set(-1.72,0.52,-0.3); c.state='sleep'; r.clock.h=18.3; r.tick(20);`,
+    `const f=document.getElementById('flash'); f.style.opacity = i>=45 && i<55 ? String(0.85*(1-(i-45)/10)) : '0';
+     if(i===45){ r.snapMoment('golden'); r.showCatch('golden', true); }
+     if(i===105) r.showCatch('golden', false);
+     if(i===110){ r.album.fresh='golden'; r.setAlbum(true); }`],
   ['c01-morning-wide', 't=9.3&speed=0.1', 150, `const r=window.__room; ${cam(1.5, 0, 0.9, 0)}`, `r.view.zoom=1.5+i*0.0016; r.resize();`],
   ['c02-cat-sunbeam', 't=16.4&speed=0.02', 150, `const r=window.__room; ${cam(4.6, -1.7, 0.62, -0.3)}`, `if(i===70) r.items.find(o=>o.name==='Cat').click(); r.view.zoom=4.6+i*0.004; r.resize();`],
   ['c03-box', 't=11&speed=0.02', 210, `const r=window.__room; ${L} r.addProp('box',{x:0.35,z:0.55}); r.cat.pos.set(1.25,0,1.3); r.cat.yaw=-2.4; r.cat.state='sit'; r.cat.decideT=1.2; ${cam(3.9, 0.3, 0.12, 0.45)}`, ``],

@@ -8,7 +8,7 @@ fs.rmSync(dir, { recursive: true, force: true }); fs.mkdirSync(dir, { recursive:
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1.5 });
 page.on('pageerror', (e) => console.log('pageerror', e.message));
-await page.goto('http://localhost:8123/index.html?fixed=1&' + (q.includes('ui=1') ? '' : 'clean=1&') + q);
+await page.goto((process.env.BASE || 'http://localhost:8123/index.html') + '?fixed=1&' + (q.includes('ui=1') ? '' : 'clean=1&') + q);
 await page.waitForFunction(() => window.__room && window.__room.frames >= 2);
 await page.waitForTimeout(2500);
 if (setup) await page.evaluate(setup);
@@ -18,7 +18,7 @@ for (let i = 0; i < +n; i++) {
   const ui = q.includes('ui=1');
   const url = await page.evaluate(([pf, i, ui]) => { const r = window.__room; if (pf) (new Function('r', 'i', pf))(r, i); r.tick(1); return ui ? '' : document.getElementById('gl').toDataURL('image/jpeg', 0.94); }, [perFrame, i, ui]);
   const file = `${dir}/f${String(i).padStart(4, '0')}.jpg`;
-  if (ui) await page.screenshot({ path: file, type: 'jpeg', quality: 94 }); // the page with its UI
+  if (ui) await page.screenshot({ path: file, type: 'jpeg', quality: 94, timeout: 180000 }); // the page with its UI
   else fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'));
 }
 await browser.close();

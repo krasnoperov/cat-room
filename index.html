@@ -4074,6 +4074,21 @@ function setAlbum(open) {
     back.focus?.();
   }
 }
+/* for films rendered frame by frame (?fixed): take a moment's picture now, and show or hide its card by hand */
+function snapMoment(id) {
+  const m = MOMENTS.find((x) => x.id === id);
+  if (!m) return null;
+  const focus = (m.focus && m.focus()) || cat.pos.clone().add(new V3(0, 0.15, 0));
+  album.got[id] = { at: new Date().toISOString(), clock: clockLabel(), img: snapshot(focus) };
+  renderAlbumCount();
+  return album.got[id];
+}
+function showCatch(id, on = true) {
+  const m = MOMENTS.find((x) => x.id === id);
+  $('catchImg').src = album.got[id]?.img || '';
+  $('catchTitle').textContent = m ? m.title : '';
+  $('catch').hidden = !on;
+}
 $('albumBtn').addEventListener('click', () => setAlbum(true));
 $('catch').addEventListener('click', () => setAlbum(true));
 $('albumClose').addEventListener('click', () => setAlbum(false));
@@ -4943,7 +4958,7 @@ function frame(now) {
 }
 
 window.__room = {
-  frames: 0, bd: BD, bdLabel, bdCount, album, MOMENTS, setAlbum, roomEvents, weather, sun, fallen, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, goTo, look, sunlit, lantern, windowState, monstera, lemon, papers, tea,
+  frames: 0, bd: BD, bdLabel, bdCount, album, MOMENTS, setAlbum, snapMoment, showCatch, roomEvents, weather, sun, fallen, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, goTo, look, sunlit, lantern, windowState, monstera, lemon, papers, tea,
   get: (name) => items.find((i) => i.name === name),
   move(name, x, z, rot = 0) { const it = this.get(name); Object.assign(it, { x, z, rot }); placeItem(it); itemsMoved(); },
   project(v) { const p = new V3(...v).project(camera); return [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight]; },
