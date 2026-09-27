@@ -1266,6 +1266,38 @@ function lemonCount() { return Math.floor(lemon.growth * 6.01); }
 
 await yieldToBrowser();
 /* --- cat bed --- */
+/* --- a wooden chair at the desk, with a soft seat pad --- */
+const chairItem = (() => {
+  const g = new THREE.Group();
+  const wood = toon('#c78d5a'), woodDark = toon('#a8703f');
+  const seat = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.04, 0.4, 3, 0.012), wood);
+  seat.position.y = 0.45;
+  const pad = new THREE.Mesh(pillowGeometry(0.36, 0.34, 0.05), toon('#e9b98a'));
+  pad.rotation.x = -Math.PI / 2; pad.position.y = 0.485;
+  g.add(seat, pad);
+  for (const [x, z] of [[-0.18, -0.17], [0.18, -0.17], [-0.18, 0.17], [0.18, 0.17]]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.015, 0.45, 10), wood);
+    leg.position.set(x, 0.225, z);
+    g.add(leg);
+  }
+  // back to the room, so whoever sits here faces the desk
+  for (const x of [-0.18, 0.18]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.018, 0.42, 10), wood);
+    post.position.set(x, 0.66, 0.18);
+    g.add(post);
+  }
+  const rail = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.07, 0.03, 3, 0.012), woodDark);
+  rail.position.set(0, 0.84, 0.18);
+  const slat = new THREE.Mesh(new RoundedBoxGeometry(0.34, 0.035, 0.02, 2, 0.008), wood);
+  slat.position.set(0, 0.68, 0.18);
+  const stretcher = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.36, 8), woodDark);
+  stretcher.rotation.z = Math.PI / 2; stretcher.position.set(0, 0.14, -0.17);
+  g.add(rail, slat, stretcher);
+  g.position.set(1.15, 0, -1.2);
+  shadowAll(g);
+  return addItem({ name: 'Chair', group: g, w: 0.44, d: 0.42, h: 0.5, blocks: true, info: () => 'Chair · <em>drag, R to turn</em>' });
+})();
+
 const bedItem = (() => {
   const g = new THREE.Group();
   // a plump round floor cushion: puffed sides, a soft dip at the centre pulled in by a
@@ -3435,6 +3467,21 @@ function sway(o, angle) {
   _sq.setFromAxisAngle(AX.z, angle);
   o.quaternion.copy(o.userData.q0).multiply(_sq);
 }
+/* terracotta → a cream glazed ceramic, keeping the shading and the dark soil */
+function whitenPot(pot) {
+  pot?.traverse((o) => {
+    const c = o.isMesh && o.geometry.attributes.color;
+    if (!c) return;
+    for (let i = 0; i < c.count; i++) {
+      const r = c.getX(i), g = c.getY(i), b = c.getZ(i);
+      if (r > 0.25 && r - b > 0.12 && r >= g) {
+        const l = Math.min(1, (0.2126 * r + 0.7152 * g + 0.0722 * b) * 1.9);
+        c.setXYZ(i, 0.93 * l + 0.05, 0.91 * l + 0.05, 0.87 * l + 0.05);
+      }
+    }
+    c.needsUpdate = true;
+  });
+}
 function adoptModel(item, model) {
   for (const c of [...item.group.children]) item.group.remove(c);
   unregister(item);
@@ -3445,6 +3492,7 @@ modelFor('monstera', 'models/monstera.glb').then((m) => {
   const leaves = [...Array(9)].map((_, i) => findPart(m, `leaf${i}`));
   if (leaves.some((l) => !l)) return;
   adoptModel(monsteraItem, m);
+  whitenPot(findPart(m, 'pot'));
   for (const l of leaves) l.scale.setScalar(0.001);
   monstera.leaves = leaves;
 });
