@@ -2531,8 +2531,9 @@ const paintMat = new THREE.ShaderMaterial({
         col = acc / wsum;
       }
       float dc = D(vUv);
-      float edge = 0.0, ao = 0.0;
+      float edge = 0.0, ao = 0.0, fol = 0.0;
       if (dc < 0.9999) {
+        fol = texture2D(tNormal, vUv).a < 0.75 ? 1.0 : 0.0;
         vec2 t = uTexel * uInkScale;
         float lap = abs(D(vUv - vec2(t.x, 0)) + D(vUv + vec2(t.x, 0)) - 2.0 * dc)
                   + abs(D(vUv - vec2(0, t.y)) + D(vUv + vec2(0, t.y)) - 2.0 * dc)
@@ -2556,7 +2557,7 @@ const paintMat = new THREE.ShaderMaterial({
           float dist = length(q);
           ao += max(0.0, dot(nc, q / max(dist, 1e-4)) - 0.12) * (1.0 - smoothstep(0.08, 0.32, dist));
         }
-        ao = clamp(ao / float(AO_N) * 2.2, 0.0, 1.0) * uAO;
+        ao = clamp(ao / float(AO_N) * 2.2, 0.0, 1.0) * uAO * (1.0 - 0.7 * fol);
       }
       vec3 c = col.rgb;
       c *= mix(vec3(1.0), vec3(0.8, 0.74, 0.9), ao);
@@ -2582,7 +2583,7 @@ const paintMat = new THREE.ShaderMaterial({
       // grade: lavender in the shade, apricot in the light
       float lum = dot(c, vec3(0.2126, 0.7152, 0.0722)) / max(alpha, 0.001);
       vec3 shade = mix(vec3(0.94, 0.9, 1.06), vec3(0.9, 0.9, 1.1), uNight);
-      c *= mix(shade, vec3(1.05, 1.0, 0.93), smoothstep(0.08, 0.7, lum));
+      c *= mix(mix(shade, vec3(1.05, 1.0, 0.93), smoothstep(0.08, 0.7, lum)), vec3(1.0), 0.5 * fol);
       // paper: slow fibres (the fine grain is added in the finishing pass)
       float fibre = vnoise(gl_FragCoord.xy * vec2(0.012, 0.03)) - 0.5;
       c *= 1.0 + fibre * 0.05;
@@ -2644,16 +2645,17 @@ function cutNormalMat(mask, side, planes) {
         #include <clipping_planes_fragment>
         if (texture2D(tA, vUv).g < 0.5) discard;
         vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
-        gl_FragColor = vec4(n * 0.5 + 0.5, 1.0);
+        gl_FragColor = vec4(n * 0.5 + 0.5, 0.5); // cut-out leaves are foliage
       }`,
   });
 }
-function normalMatFor(m) {
+/* foliage writes alpha 0.5 into the normal buffer, so the paint pass can spare leaves from AO mush and the lavender grade */
+function normalMatFor(m, foliage) {
   const src = Array.isArray(m) ? m[0] : m;
   const planes = src.clippingPlanes || null;
   const cut = src.alphaTest > 0 ? src.alphaMap || src.map : null;
-  const key = (planes ? planes[0].__id || (planes[0].__id = Math.random()) : 0) + ':' + src.side + ':' + (cut ? cut.uuid : '');
-  if (!normalMats.has(key)) normalMats.set(key, cut ? cutNormalMat(cut, src.side, planes) : new THREE.MeshNormalMaterial({ side: src.side, clippingPlanes: planes }));
+  const key = (planes ? planes[0].__id || (planes[0].__id = Math.random()) : 0) + ':' + src.side + ':' + (cut ? cut.uuid : '') + (foliage ? ':f' : '');
+  if (!normalMats.has(key)) normalMats.set(key, cut ? cutNormalMat(cut, src.side, planes) : new THREE.MeshNormalMaterial({ side: src.side, clippingPlanes: planes, opacity: foliage ? 0.5 : 1 }));
   return normalMats.get(key);
 }
 function sizeTargets() {
@@ -2694,7 +2696,7 @@ function paintFrame() {
   BD.stats.tris = renderer.info.render.triangles; BD.stats.calls = renderer.info.render.calls;
 
   camera.layers.set(0);
-  scene.traverseVisible((o) => { if (o.isMesh && o.layers.test(camera.layers)) { swapped.push(o, o.material); o.material = normalMatFor(o.material); } });
+  scene.traverseVisible((o) => { if (o.isMesh && o.layers.test(camera.layers)) { swapped.push(o, o.material); o.material = normalMatFor(o.material, o.userData.foliage); } });
   renderer.setRenderTarget(normalRT);
   renderer.setClearColor(0x808080, 0);
   renderer.clear();
@@ -2738,7 +2740,7 @@ function paintFrame() {
 const BD = {
   on: params.has('breakdown'),
   stage: { view: 'final' }, left: null, wipeX: null, clipX: null,
-  assemble: 1, bones: 0, cut: null, portal: 0, clay: false,
+  assemble: 1, bones: 0, cut: null, portal: 0, clay: false, labelOpacity: 1,
   stats: { tris: 0, calls: 0 },
   clayMat: new THREE.MeshToonMaterial({ color: '#8f8a93', gradientMap: gradient }),
   wireMat: new THREE.MeshBasicMaterial({ color: '#9cc3ff', wireframe: true, transparent: true, opacity: 0.55 }),
@@ -2855,12 +2857,11 @@ function bdDrawBones() {
   toScreen(() => renderer.render(bdSkelScene, camera));
   renderer.autoClear = true;
 }
-let bdPortal = -1;
 function bdWindow() {
-  if (BD.portal === bdPortal) return;
-  bdPortal = BD.portal;
-  const off = BD.portal > 0.5;
-  for (const p of viewPlanes) { p.material.stencilWrite = !off; p.material.stencilFunc = off ? THREE.AlwaysStencilFunc : THREE.EqualStencilFunc; }
+  const day = viewPlanes[0].material, on = BD.portal > 0.001;
+  day.stencilWrite = !on; day.stencilFunc = on ? THREE.AlwaysStencilFunc : THREE.EqualStencilFunc;
+  day.transparent = on; day.opacity = on ? BD.portal : 1; day.depthWrite = !on;
+  viewPlanes[1].visible = !on;
 }
 function renderFrame() {
   if (!BD.on) { paintFrame(); return; }
@@ -2881,6 +2882,7 @@ function bdLabel(n, title, sub) {
   const el = $('bd');
   if (!el) return;
   el.hidden = !title;
+  el.style.opacity = BD.labelOpacity ?? 1;
   $('bdN').textContent = n || ''; $('bdTitle').textContent = title || ''; $('bdSub').textContent = sub || '';
 }
 function bdCount() {
@@ -3769,7 +3771,11 @@ function whitenPot(pot) {
 function glazePot(pot) {
   pot?.traverse((o) => { if (o.isMesh) o.material = surfaceNoise(o.material.clone(), 'glaze'); });
 }
+function markFoliage(root) {
+  root.traverse((o) => { if (o.isMesh && /leaf|crown|vine/i.test(o.name + ' ' + (o.parent?.name || ''))) o.userData.foliage = true; });
+}
 function adoptModel(item, model) {
+  markFoliage(model);
   for (const c of [...item.group.children]) item.group.remove(c);
   unregister(item);
   item.group.add(model);
@@ -3815,6 +3821,7 @@ loadGLB('models/pothos.glb').then((scene0) => {
     p.pot.removeFromParent();
     for (const v of p.vines) for (const lf of v.leaves) lf.removeFromParent();
     p.vines = vines;
+    markFoliage(m);
     wallStuff.add(m);
     clipTo(m, 'N');
     register(p.item);
@@ -4843,7 +4850,7 @@ await yieldToBrowser();
 renderer.setRenderTarget(colorRT);
 await renderer.compileAsync(scene, camera);
 camera.layers.set(0);
-scene.traverseVisible((o) => { if (o.isMesh && o.layers.test(camera.layers)) { swapped.push(o, o.material); o.material = normalMatFor(o.material); } });
+scene.traverseVisible((o) => { if (o.isMesh && o.layers.test(camera.layers)) { swapped.push(o, o.material); o.material = normalMatFor(o.material, o.userData.foliage); } });
 renderer.setRenderTarget(normalRT);
 await renderer.compileAsync(scene, camera);
 for (let i = 0; i < swapped.length; i += 2) swapped[i].material = swapped[i + 1];
