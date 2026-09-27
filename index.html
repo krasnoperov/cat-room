@@ -2740,10 +2740,9 @@ function paintFrame() {
 const BD = {
   on: params.has('breakdown'),
   stage: { view: 'final' }, left: null, wipeX: null, clipX: null,
-  assemble: 1, bones: 0, cut: null, portal: 0, clay: false, labelOpacity: 1,
+  assemble: 1, bones: 0, cut: null, portal: 0, clay: false, labelOpacity: 1, lines: 0, band: 0,
   stats: { tris: 0, calls: 0 },
   clayMat: new THREE.MeshToonMaterial({ color: '#8f8a93', gradientMap: gradient }),
-  wireMat: new THREE.MeshBasicMaterial({ color: '#9cc3ff', wireframe: true, transparent: true, opacity: 0.55 }),
 };
 /* the final pass draws into the left part of the screen when a wipe is on */
 function toScreen(fn) {
@@ -2776,14 +2775,12 @@ function applyFlags(st) {
 function drawStage(st) {
   applyFlags(st);
   if (st.view === 'wire') {
-    camera.layers.set(0);
-    scene.overrideMaterial = BD.wireMat;
+    paintFrame(); // for the depth the lines are tested against
     renderer.setRenderTarget(null);
     renderer.setClearColor(0x1b1830, 1);
-    toScreen(() => { renderer.clear(); renderer.render(scene, camera); });
+    toScreen(() => renderer.clear());
     renderer.setClearColor(0x000000, 0);
-    scene.overrideMaterial = null;
-    camera.layers.enable(1);
+    bdLines(1, toScreen, false);
     return;
   }
   paintFrame();
@@ -2857,6 +2854,71 @@ function bdDrawBones() {
   toScreen(() => renderer.render(bdSkelScene, camera));
   renderer.autoClear = true;
 }
+/* CAD lines: each mesh's creases (not its triangles), tested against the
+   normal pass's depth; the lines a surface hides are drawn faint */
+const bdLineMats = [];
+function bdLineMat(src, hidden, foliage) {
+  const m = new THREE.LineBasicMaterial({ color: '#9cc3ff', transparent: true, depthWrite: false,
+    depthFunc: hidden ? THREE.GreaterDepth : THREE.LessEqualDepth, clippingPlanes: src?.clippingPlanes || null });
+  m.userData.hidden = hidden; m.userData.foliage = foliage; bdLineMats.push(m); return m;
+}
+const bdCatWireMat = new THREE.MeshBasicMaterial({ color: '#9cc3ff', wireframe: true, transparent: true, depthWrite: false });
+let bdLinesBuilt = false;
+function bdBuildLines() {
+  bdLinesBuilt = true;
+  const meshes = [];
+  scene.traverse((o) => { if (o.isMesh && o.geometry && o.layers.isEnabled(0) && !o.isInstancedMesh) meshes.push(o); });
+  for (const o of meshes) {
+    const src = Array.isArray(o.material) ? o.material[0] : o.material;
+    if (!src || src.colorWrite === false || src.visible === false) continue;
+    if (o.isSkinnedMesh) {
+      const w = new THREE.SkinnedMesh(o.geometry, bdCatWireMat);
+      w.bind(o.skeleton, o.bindMatrix); w.bindMode = o.bindMode; w.layers.set(2); w.frustumCulled = false;
+      o.add(w); continue;
+    }
+    const edges = new THREE.EdgesGeometry(o.geometry, 28);
+    for (const hidden of [false, true]) {
+      const l = new THREE.LineSegments(edges, bdLineMat(src, hidden, !!o.userData.foliage));
+      l.layers.set(hidden ? 3 : 2); l.raycast = () => {};
+      o.add(l);
+    }
+  }
+}
+const bdDepthMat = new THREE.ShaderMaterial({
+  uniforms: { tD: { value: normalRT.depthTexture } },
+  vertexShader: quadVS,
+  fragmentShader: `uniform sampler2D tD; varying vec2 vUv;
+    void main(){ gl_FragDepth = min(1.0, texture2D(tD, vUv).x + 3e-5); gl_FragColor = vec4(0.0); }`,
+  colorWrite: false, depthTest: true, depthFunc: THREE.AlwaysDepth, depthWrite: true,
+});
+/* draws the lines at opacity a inside clip(fn): pale blue on the dark drawing board, ink blue and
+   without the leaves (a tangle of cards at any size) over the painted room */
+const BD_PALE = new THREE.Color('#9cc3ff'), BD_INK = new THREE.Color('#3f5fd8');
+function bdLines(a, clip, over = true) {
+  if (a < 0.005) return;
+  if (!bdLinesBuilt) bdBuildLines();
+  for (const m of bdLineMats) {
+    m.color.copy(over ? BD_INK : BD_PALE);
+    m.opacity = (m.userData.hidden ? 0.16 : 0.95) * a * (m.userData.foliage ? (over ? 0 : 0.35) : 1);
+  }
+  bdCatWireMat.opacity = over ? 0 : 0.3 * a; // its triangles fill in at any size over the painting
+  renderer.autoClear = false;
+  renderer.setRenderTarget(null);
+  clip(() => {
+    renderer.clearDepth();
+    runPass(bdDepthMat, null);
+    camera.layers.set(3); renderer.render(scene, camera);
+    camera.layers.set(2); renderer.render(scene, camera);
+  });
+  camera.layers.set(0); camera.layers.enable(1);
+  renderer.autoClear = true;
+}
+/* a band of lines just behind the wipe: the new look is scanned in */
+function bdBandClip(fn) {
+  const x1 = BD.wipeX * innerWidth, x0 = Math.max(0, x1 - BD.band * innerWidth);
+  renderer.setScissorTest(true); renderer.setScissor(x0, 0, Math.max(0, x1 - x0), innerHeight);
+  fn(); renderer.setScissorTest(false);
+}
 function bdWindow() {
   const day = viewPlanes[0].material, on = BD.portal > 0.001;
   day.stencilWrite = !on; day.stencilFunc = on ? THREE.AlwaysStencilFunc : THREE.EqualStencilFunc;
@@ -2871,8 +2933,14 @@ function renderFrame() {
   scene.updateMatrixWorld(true);
   BD.clipX = null;
   drawStage(BD.stage);
+  if (BD.stage.view !== 'wire') bdLines(BD.lines, (fn) => fn());
   bdDrawBones();
-  if (BD.left && BD.wipeX != null && BD.wipeX > 0) { BD.clipX = BD.wipeX; drawStage(BD.left); bdDrawBones(); BD.clipX = null; }
+  if (BD.left && BD.wipeX != null && BD.wipeX > 0) {
+    BD.clipX = BD.wipeX; drawStage(BD.left);
+    if (BD.left.view !== 'wire') bdLines(BD.lines, toScreen);
+    bdDrawBones(); BD.clipX = null;
+    if (BD.band > 0 && BD.wipeX < 1 && BD.left.view !== 'wire' && BD.stage.view !== 'wire') bdLines(1, bdBandClip);
+  }
   applyFlags({});
   bdRestore();
   const w = $('bdWipe');

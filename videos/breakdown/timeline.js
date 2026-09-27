@@ -45,6 +45,10 @@
     bd.left = sweep < 1 && prev ? look : null;
     bd.wipeX = sweep < 1 && prev ? sweep : null;
     bd.assemble = sm(0.2, 3.6, T);
+    // the drawing stays under the picture: lines over the clay, a band of them behind every
+    // sweep, and the whole drawing back over the room at the end
+    bd.band = 0.14;
+    bd.lines = Math.max(0.6 * sm(3.9, 4.6, T) * (1 - sm(6.6, 8.2, T)), 0.4 * sm(34.2, 35.8, T));
     // light: the sun walks during 03, dusk at the end
     r.clock.h = T < 7.6 ? 9 : T < 31.4 ? lerp(9, 16.8, sm(7.8, 10.8, T)) : lerp(16.8, 20.6, sm(31.6, 37.5, T));
     // the rig: the cat walks across the rug with its bones showing
