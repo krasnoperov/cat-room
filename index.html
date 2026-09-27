@@ -3848,6 +3848,12 @@ const TRACKS = [
   { src: 'audio/golden-hour.mp3', title: 'Golden hour', hours: [16, 21] },
   { src: 'audio/night-lantern.mp3', title: 'Night lantern', hours: [20, 30] },
   { src: 'audio/rain-on-glass.mp3', title: 'Rain on glass', rain: true },
+  { src: 'audio/sunny-sill.mp3', title: 'Sunny sill', hours: [8, 13] },
+  { src: 'audio/honey-light.mp3', title: 'Honey light', hours: [15, 20] },
+  { src: 'audio/night-window.mp3', title: 'Night window', hours: [20, 30] },
+  { src: 'audio/midnight-tea.mp3', title: 'Midnight tea', hours: [22, 30] },
+  { src: 'audio/rain-window-seat.mp3', title: 'Window seat, raining', rain: true },
+  { src: 'audio/drizzle-and-books.mp3', title: 'Drizzle and books', rain: true },
 ];
 const fitsNow = (t) => (weather.rain ? !!t.rain : !t.rain && t.hours && ((clock.h >= t.hours[0] && clock.h < t.hours[1]) || (clock.h + 24 >= t.hours[0] && clock.h + 24 < t.hours[1])));
 const LAYERS = ['amb-city-day', 'amb-city-night', 'amb-rain', 'purr'];

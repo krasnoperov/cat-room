@@ -48,7 +48,7 @@ Python's test server does not. See `PERF_REPORT.md` for measurements.
   hops onto the seat, keeps away from a wet window, and now and then
   knocks a leaf off the monstera.
 - **Books** can be pulled out; the neighbour leans into the gap.
-- **Room radio** plays generated lo-fi (Eleven Music via makefx) and the
+- **Room radio** plays twelve generated lo-fi tracks (Eleven Music via makefx), picked to suit the time of day or the rain, and the
   room's own sounds: the city by day and crickets by night through an open
   window, rain when it rains. Pet the cat (click it) and it purrs.
 - **The cat** is a small skeleton: the torso pivots at the pelvis, legs are
