@@ -1009,17 +1009,21 @@ const tea = { temp: 78, steam: [] };
 const papers = [];
 const deskItem = (() => {
   const g = new THREE.Group();
-  const top = new THREE.Mesh(new RoundedBoxGeometry(1.05, 0.05, 0.56, 3, 0.015), M.wood);
-  top.position.y = 0.73;
-  g.add(top);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.71, 0.045), M.wood);
-    leg.position.set(sx * 0.47, 0.355, sz * 0.22);
-    g.add(leg);
+  // a sturdy little writing desk: a thick top, chunky square legs, an apron on all four
+  // sides tying the legs together, and a low stretcher at each end
+  const block = (w, h, d, x, y, z, mat = M.wood, r = 0.008) => { const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, r), mat); m.position.set(x, y, z); g.add(m); return m; };
+  block(1.05, 0.055, 0.56, 0, 0.7275, 0, M.wood, 0.014);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) block(0.062, 0.7, 0.062, sx * 0.46, 0.35, sz * 0.21);
+  block(0.86, 0.085, 0.024, 0, 0.655, 0.21, M.wood);    // front apron
+  block(0.86, 0.085, 0.024, 0, 0.655, -0.21, M.wood);   // back apron
+  for (const sx of [-1, 1]) {
+    block(0.024, 0.085, 0.36, sx * 0.46, 0.655, 0, M.wood);       // side aprons
+    block(0.03, 0.04, 0.36, sx * 0.46, 0.13, 0, M.woodDark);       // low stretchers
   }
-  const rail = new THREE.Mesh(new THREE.BoxGeometry(0.94, 0.08, 0.02), M.woodDark);
-  rail.position.set(0, 0.66, -0.23);
-  g.add(rail);
+  // a shallow drawer in the front apron, with a brass knob
+  block(0.34, 0.06, 0.012, 0, 0.655, 0.226, M.woodLight, 0.005);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(0.014, 12, 8), toon('#c9a15a'));
+  knob.position.set(0, 0.655, 0.24); g.add(knob);
   // mug
   const mug = new THREE.Group();
   const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 0.1, 20, 1, true), M.mug);
@@ -1266,33 +1270,22 @@ function lemonCount() { return Math.floor(lemon.growth * 6.01); }
 
 await yieldToBrowser();
 /* --- cat bed --- */
-/* --- a wooden chair at the desk, with a soft seat pad --- */
+/* --- a wooden chair at the desk: chunky square legs, the back legs rising into the
+   back posts, a wide back board, a thick seat with a soft pad, stretchers all round --- */
 const chairItem = (() => {
   const g = new THREE.Group();
-  const wood = toon('#c78d5a'), woodDark = toon('#a8703f');
-  const seat = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.04, 0.4, 3, 0.012), wood);
-  seat.position.y = 0.45;
-  const pad = new THREE.Mesh(pillowGeometry(0.36, 0.34, 0.05), toon('#e9b98a'));
-  pad.rotation.x = -Math.PI / 2; pad.position.y = 0.485;
-  g.add(seat, pad);
-  for (const [x, z] of [[-0.18, -0.17], [0.18, -0.17], [-0.18, 0.17], [0.18, 0.17]]) {
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.015, 0.45, 10), wood);
-    leg.position.set(x, 0.225, z);
-    g.add(leg);
-  }
-  // back to the room, so whoever sits here faces the desk
-  for (const x of [-0.18, 0.18]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.018, 0.42, 10), wood);
-    post.position.set(x, 0.66, 0.18);
-    g.add(post);
-  }
-  const rail = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.07, 0.03, 3, 0.012), woodDark);
-  rail.position.set(0, 0.84, 0.18);
-  const slat = new THREE.Mesh(new RoundedBoxGeometry(0.34, 0.035, 0.02, 2, 0.008), wood);
-  slat.position.set(0, 0.68, 0.18);
-  const stretcher = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.36, 8), woodDark);
-  stretcher.rotation.z = Math.PI / 2; stretcher.position.set(0, 0.14, -0.17);
-  g.add(rail, slat, stretcher);
+  const wood = toon('#c98f5c'), woodDark = toon('#aa7444');
+  const block = (w, h, d, x, y, z, mat = wood, r = 0.007) => { const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, r), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const L = 0.046, SX = 0.185, SZ = 0.175, SEAT = 0.46;
+  block(0.44, 0.045, 0.42, 0, SEAT, 0, wood, 0.012);                       // seat
+  const pad = new THREE.Mesh(pillowGeometry(0.37, 0.35, 0.05), toon('#e9b98a'));
+  pad.rotation.x = -Math.PI / 2; pad.position.y = SEAT + 0.04; g.add(pad);
+  for (const sx of [-1, 1]) block(L, SEAT, L, sx * SX, SEAT / 2, -SZ);    // front legs (toward the desk)
+  for (const sx of [-1, 1]) block(L, 0.9, L, sx * SX, 0.45, SZ);          // back legs run up into the back
+  block(0.37, 0.16, 0.026, 0, 0.78, SZ, woodDark, 0.01);                   // wide back board
+  block(0.37, 0.03, 0.022, 0, 0.6, SZ, wood);                              // lower back rail
+  for (const sx of [-1, 1]) block(0.024, 0.03, 0.3, sx * SX, 0.14, 0, woodDark);   // side stretchers
+  block(0.33, 0.03, 0.024, 0, 0.2, -SZ, woodDark);                         // front stretcher
   g.position.set(1.15, 0, -1.2);
   shadowAll(g);
   return addItem({ name: 'Chair', group: g, w: 0.44, d: 0.42, h: 0.5, blocks: true, info: () => 'Chair · <em>drag, R to turn</em>' });
