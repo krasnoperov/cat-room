@@ -82,20 +82,15 @@ sheet) with its own behaviour:
 - **Laser pointer** (in the dock): the cat stalks and pounces on the dot,
   and gets bored after a while.
 
-## The album of moments (experiment, branch `album`)
+## The album of moments
 
 The room takes a picture by itself when something lovely happens: the cat
 asleep in the sun, in a box, watching birds in the rain, a puddle under an
 open window, a forgotten cup of tea. 26 moments, three of them secret; each
 is a condition over the room's own state that has to hold for a moment. The
 book button in the dock opens the album; uncollected moments show a hint.
-Pictures stay in the browser (`localStorage`).
-
-Deployed apart from the main room, at https://moments.krasnoperov.me:
-
-```bash
-./build.sh && npx wrangler deploy -c wrangler.album.jsonc
-```
+Pictures stay in the browser (`localStorage`). `moments-test.mjs` forces
+each moment's situation and checks its condition.
 
 ## Controls
 

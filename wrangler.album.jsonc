@@ -1,7 +1,0 @@
-{
-  // The album-of-moments experiment, deployed apart from rooms.krasnoperov.me
-  "name": "cat-room-album",
-  "compatibility_date": "2026-09-01",
-  "assets": { "directory": "./dist" },
-  "routes": [{ "pattern": "moments.krasnoperov.me", "custom_domain": true }]
-}
