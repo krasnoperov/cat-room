@@ -1032,6 +1032,33 @@ const rugItem = (() => {
   };
   rug.geometry.attributes.uv.array.forEach((v, i, a) => { a[i] = (v - 0.5) * 0.985 + 0.5; });
   g.add(rug);
+  // a soft shaggy pile over the plain centre: stacked shells of tufts, each shell keeping
+  // fewer tufts than the one below, so the pile thins out towards its tips and its edge
+  const pile = canvasTex(512, 512, (c, w, h) => {
+    c.fillStyle = '#000'; c.fillRect(0, 0, w, h);
+    const r = rng(19);
+    for (let i = 0; i < 9000; i++) {
+      const x = r() * w, y = r() * h, d = Math.hypot(x - w / 2, y - h / 2) / (w / 2);
+      if (d > 1) continue;
+      const edge = 1 - Math.pow(d, 5);                   // fewer, shorter tufts at the rim
+      const v = Math.floor(255 * edge * (0.35 + 0.65 * r()));
+      c.fillStyle = `rgb(${v},${v},${v})`;
+      c.beginPath(); c.arc(x, y, 1.5 + r() * 2.8, 0, Math.PI * 2); c.fill();
+    }
+  });
+  const R_PILE = 0.47, LAYERS = 6;
+  for (let i = 0; i < LAYERS; i++) {
+    const k = i / (LAYERS - 1);
+    const shell = new THREE.Mesh(new THREE.CircleGeometry(R_PILE * (1 - k * 0.04), 64), toon('#ffffff', {
+      color: new THREE.Color('#e6dac8').lerp(new THREE.Color('#fdf9f2'), k),
+      alphaMap: pile, alphaTest: 0.08 + k * 0.7, side: THREE.DoubleSide,
+    }));
+    shell.rotation.x = -Math.PI / 2;
+    shell.position.y = 0.006 + k * 0.022;
+    shell.receiveShadow = true;
+    noInk(shell);
+    g.add(shell);
+  }
   g.position.set(0.35, 0, 0.45);
   return addItem({ name: 'Rug', group: g, w: 1.7, d: 1.7, blocks: false, info: () => 'Rug · <em>drag it anywhere</em>' });
 })();
