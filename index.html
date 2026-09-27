@@ -1207,14 +1207,36 @@ await yieldToBrowser();
 /* --- cat bed --- */
 const bedItem = (() => {
   const g = new THREE.Group();
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.07, 12, 32), toon('#d99a7a'));
-  ring.rotation.x = Math.PI / 2; ring.position.y = 0.07;
-  const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.05, 32), toon('#f3dcc6'));
-  pad.position.y = 0.03;
-  g.add(ring, pad);
+  // a plump round floor cushion: puffed sides, a soft dip at the centre pulled in by a
+  // button tuft, gentle pleats radiating from it, and a piped seam round the middle
+  const R0 = 0.27, H0 = 0.19, prof = [];
+  for (let i = 0; i <= 24; i++) {
+    const a = (i / 24) * Math.PI;                       // from the top centre round to the floor
+    // a squared-off circle: fat, rounded shoulders rather than a lens
+    const sa = Math.sin(a), ca = Math.cos(a);
+    const r = Math.sign(sa) * Math.pow(Math.abs(sa), 0.55) * R0;
+    let y = (Math.sign(ca) * Math.pow(Math.abs(ca), 0.7) * 0.5 + 0.5) * H0;
+    if (a < 1.0) y -= 0.05 * Math.cos((a / 1.0) * Math.PI / 2); // the tuft pulls the top in
+    prof.push(new THREE.Vector2(Math.max(0.0005, r), y));
+  }
+  const cushionGeo = new THREE.LatheGeometry(prof.reverse(), 64); // lathe profiles run floor to top
+  const cp = cushionGeo.attributes.position;
+  for (let i = 0; i < cp.count; i++) {
+    const x = cp.getX(i), z = cp.getZ(i), y = cp.getY(i), rr = Math.hypot(x, z);
+    if (rr < 1e-4) continue;
+    const pleat = 1 - 0.05 * Math.max(0, Math.cos(Math.atan2(z, x) * 8)) * Math.min(1, rr / R0) * (y / H0);
+    cp.setX(i, x * pleat); cp.setZ(i, z * pleat);
+  }
+  cushionGeo.computeVertexNormals();
+  const cushion = new THREE.Mesh(cushionGeo, toon('#d8928a'));
+  const seam = new THREE.Mesh(new THREE.TorusGeometry(R0 + 0.002, 0.009, 8, 64), toon('#c47c74'));
+  seam.rotation.x = Math.PI / 2; seam.position.y = H0 * 0.5;
+  const button = new THREE.Mesh(new THREE.SphereGeometry(0.024, 16, 10), toon('#c47c74'));
+  button.scale.y = 0.55; button.position.y = H0 - 0.046;
+  g.add(cushion, seam, button);
   g.position.set(0.55, 0, 1.25);
   shadowAll(g);
-  return addItem({ name: 'Cat bed', group: g, w: 0.6, d: 0.6, blocks: false, info: () => 'Cat bed · <em>nice, but is it warm?</em>' });
+  return addItem({ name: 'Cat bed', group: g, w: 0.56, d: 0.56, h: 0.15, blocks: true, info: () => 'Cat bed · <em>nice, but is it warm?</em>' });
 })();
 
 /* --- bookcase: pull a book and its neighbours lean --- */
@@ -1843,7 +1865,7 @@ function warmth(p, onSeat) {
     w += 1.4 * Math.max(0, 1 - d / 1.2);
   }
   const bed = bedItem;
-  if (Math.hypot(p.x - bed.x, p.z - bed.z) < 0.18) w += 1.1;
+  if (Math.hypot(p.x - bed.x, p.z - bed.z) < 0.18 && p.y > 0.1) w += 1.1; // on the cushion, not beside it
   if (onSeat) w += 0.4;
   if (Math.hypot(p.x - rugItem.x, p.z - rugItem.z) < 0.8) w += 0.25;
   return w;
@@ -1871,8 +1893,8 @@ function candidates() {
   for (let z = SEAT.z0 + 0.25; z <= SEAT.z1 - 0.2; z += 0.25) {
     out.push({ p: new V3(-1.72, SEAT.top, z), seat: true, kind: watching ? 'watch' : 'rest', bonus: watching ? 3 : 0, hops: [new V3(SEAT.x1 + CAT_HALF + 0.06, 0, z)] });
   }
-  const b = bedItem;
-  out.push({ p: new V3(b.x, 0.05, b.z), kind: 'rest' });
+  const b = bedItem, bedFrom = floorNear(new V3(b.x, 0, b.z), 0.27 + CAT_HALF);
+  if (bedFrom) out.push({ p: new V3(b.x, 0.15, b.z), kind: 'rest', hops: [bedFrom], away: bedFrom });
   for (const pr of props) {
     if (pr.type === 'box' && time > (cat.boxBoredUntil || 0)) {
       const c = pr.group.getWorldPosition(new V3());
@@ -1989,6 +2011,8 @@ function keepCatOut() {
   for (let pass = 0; pass < 2; pass++) for (const o of items) {
     if (!o.blocks || !(o.kind === 'floor' || o === seatItem)) continue;
     if (o.prop && o.prop === cat.spot?.owner) continue; // the thing it is climbing into or onto
+    const sp = cat.spot?.p;
+    if (sp && sp.y > 0.05) { const g = footprint(o); if (sp.x > g.x0 && sp.x < g.x1 && sp.z > g.z0 && sp.z < g.z1) continue; } // it is about to jump onto this
     if (cat.pos.y >= (o.h ?? 0.8) - 0.04) continue; // standing on it
     if ((o.h ?? 0.8) < 0.1) continue; // bowls: it leans over them to eat
     const f = footprint(o);
@@ -2313,7 +2337,7 @@ const paintMat = new THREE.ShaderMaterial({
         vec3 nc = N(vUv);
         float nd = max(max(1.0 - dot(nc, N(vUv + vec2(t.x, 0))), 1.0 - dot(nc, N(vUv - vec2(t.x, 0)))),
                        max(1.0 - dot(nc, N(vUv + vec2(0, t.y))), 1.0 - dot(nc, N(vUv - vec2(0, t.y)))));
-        float nEdge = smoothstep(0.22, 0.5, nd);
+        float nEdge = smoothstep(0.32, 0.62, nd); // only real creases, not every facet of a leaf
         edge = max(dEdge, nEdge) * (0.75 + 0.25 * vnoise(gl_FragCoord.xy * 0.08)) * (1.0 - blurAmt);
 
         // ambient occlusion in the orthographic view: a spiral of samples within 22 cm
@@ -2331,7 +2355,9 @@ const paintMat = new THREE.ShaderMaterial({
       }
       vec3 c = col.rgb;
       c *= mix(vec3(1.0), vec3(0.8, 0.74, 0.9), ao);
-      c = mix(c, c * uInk * 1.9, edge * 0.85);
+      // ink tinted by the colour it outlines, like a darker pencil of the same hue
+      vec3 inkTone = mix(c * 0.52, c * uInk * 1.9, 0.35);
+      c = mix(c, inkTone, edge * 0.62);
       // bloom, warmed a touch
       // a tight core from the fine level, a wide warm halo from the coarse ones
       vec3 bl = texture2D(tBloom, vUv).rgb * 0.55 + texture2D(tBloom2, vUv).rgb * 0.35 + texture2D(tBloom3, vUv).rgb * 0.3;
@@ -2436,7 +2462,7 @@ function sizeTargets() {
   // multisampling costs more as pixels get denser; at 2x and above, 2 samples are plenty
   const samples = renderer.getPixelRatio() > 1.5 ? 2 : 4;
   if (colorRT.samples !== samples) { colorRT.samples = samples; colorRT.dispose(); }
-  const px = Math.max(1, renderer.getPixelRatio() * 0.8);
+  const px = Math.max(1, renderer.getPixelRatio() * 0.62);
   paintMat.uniforms.uTexel.value.set(px / v.x, px / v.y);
   finalRT.setSize(v.x, v.y);
   fxaaMat.uniforms.resolution.value.set(1 / v.x, 1 / v.y);
