@@ -955,10 +955,13 @@ function bar(w, h, d, mat) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h
   const trim = M.white, lip = 0.012, W = WIN.u1 - WIN.u0, Hh = WIN.y1 - WIN.y0;
   const lining = (w, h, d, x, y, z) => { const m = bar(w, h, d, trim); m.position.set(x, y, z); windowGroup.add(m); return m; };
   const rx = -HW - T / 2 + lip / 2, rd = T + lip;
-  lining(rd, 0.025, W, rx, WIN.y0 - 0.0125, winCenter.z);          // sill board
-  lining(rd, 0.025, W, rx, WIN.y1 + 0.0125, winCenter.z);          // head
-  lining(rd, Hh + 0.05, 0.025, rx, winCenter.y, WIN.u0 - 0.0125);  // jambs
-  lining(rd, Hh + 0.05, 0.025, rx, winCenter.y, WIN.u1 + 0.0125);
+  // each lining stands E proud of the reveal face it covers: flush, the wall and the lining
+  // share a plane and take turns in the depth buffer, and the sill flickers as the camera moves
+  const E = 0.0015;
+  lining(rd, 0.025, W, rx, WIN.y0 - 0.0125 + E, winCenter.z);          // sill board
+  lining(rd, 0.025, W, rx, WIN.y1 + 0.0125 - E, winCenter.z);          // head
+  lining(rd, Hh + 0.05, 0.025, rx, winCenter.y, WIN.u0 - 0.0125 + E);  // jambs
+  lining(rd, Hh + 0.05, 0.025, rx, winCenter.y, WIN.u1 + 0.0125 - E);
   // the fixed frame the casements close into, near the outer face of the wall
   const fx = -HW - T + 0.035, fw = 0.05, fd = 0.05;
   lining(fd, fw, W, fx, WIN.y0 + fw / 2, winCenter.z);
@@ -1597,6 +1600,7 @@ const lanternItem = (() => {
 const lanternBall = lanternItem.group.children[1];
 const lanternOffMat = lanternBall.material;
 const lanternOnMat = M.lanternOn.clone();
+const lanternOnColor = lanternOnMat.color.clone();
 lanternOnMat.clippingPlanes = [clip.back];
 
 /* window sashes are clickable too */
@@ -1615,7 +1619,8 @@ const hemi = new THREE.HemisphereLight('#dfe6ff', '#c9a88f', 1.6);
 scene.add(hemi);
 const sunLight = new THREE.DirectionalLight('#fff1d6', 3);
 sunLight.castShadow = true;
-sunLight.shadow.mapSize.set(DESKTOP ? 4096 : 2048, DESKTOP ? 4096 : 2048);
+const SHADOW_MAP = DESKTOP || params.has('fixed') ? 4096 : 2048; // films get the sharp map too
+sunLight.shadow.mapSize.set(SHADOW_MAP, SHADOW_MAP);
 Object.assign(sunLight.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 0.5, far: 30 });
 sunLight.shadow.bias = -0.0004;
 sunLight.shadow.normalBias = 0.02;
@@ -1837,17 +1842,17 @@ heart.sprite.renderOrder = 7;
 scene.add(heart.sprite);
 
 /* poses, in the cat's own space (+Z is where it looks, +Y is up).
-   y/z move the pelvis, pitch tips the body nose-up (negative), curl bends the
+   y/z move the pelvis in its bone's space: -y is back along the body, -z is down; pitch tips the body nose-up (negative), curl bends the
    spine sideways; fx, fz, bx, bz are where the front and back paws rest. */
 const POSES = {
-  walk:  { y: 0, z: 0, pitch: 0, arch: 0, curl: 0, neck: 0, hp: 0.05, hy: 0, hr: 0, fx: 0.046, fz: 0.086, bx: 0.052, bz: -0.078, tl: 0.12, tc: 0.12, tw: 0, eye: 1 },
+  walk:  { y: 0, z: -0.03, pitch: 0, arch: 0, curl: 0, neck: 0, hp: 0.05, hy: 0, hr: 0, fx: 0.046, fz: 0.086, bx: 0.052, bz: -0.078, tl: 0.12, tc: 0.12, tw: 0, eye: 1 },
   sit:   { y: -0.062, z: -0.03, pitch: -0.42, arch: 0.04, curl: 0, neck: 0.22, hp: 0.16, hy: 0, hr: 0, fx: 0.04, fz: 0.055, bx: 0.07, bz: 0.0, tl: -1.25, tc: 0.1, tw: 0.55, eye: 1 },
   sleep: { y: -0.07, z: 0, pitch: 0.03, arch: -0.03, curl: 0.14, neck: 0.04, hp: 0.14, hy: -0.12, hr: -0.08, fx: 0.038, fz: 0.06, bx: 0.04, bz: -0.03, tl: -1.5, tc: 0.04, tw: 0.78, eye: 0 },
   held:  { y: 0.02, z: 0, pitch: -1.1, arch: 0, curl: 0, neck: 0.5, hp: 0.35, hy: 0, hr: 0, fx: 0.046, fz: 0.086, bx: 0.052, bz: -0.078, tl: -0.9, tc: 0.05, tw: 0, eye: 1 },
 };
 POSES.eat = { ...POSES.walk, y: -0.012, pitch: 0.12, neck: 0.55, hp: 0.65, tl: 0.3, eye: 0.55 };
 POSES.meow = { ...POSES.sit, neck: 0.15, hp: -0.3, eye: 1 };
-POSES.crouch = { ...POSES.walk, y: -0.045, pitch: 0.06, neck: -0.1, hp: -0.08, tl: -0.35, tc: 0.02, eye: 1 };
+POSES.crouch = { ...POSES.walk, y: -0.02, z: -0.055, pitch: 0.06, neck: -0.1, hp: -0.08, tl: -0.35, tc: 0.02, eye: 1 };
 const POSE_OF = { hop: 'walk', hunt: 'walk', pounce: 'walk', watch: 'sit', bat: 'sit', drink: 'eat', stalk: 'crouch' };
 cat.pose = { ...POSES.sleep };
 
@@ -1894,6 +1899,79 @@ function solveLeg(L, target, poleDirCat) {
 }
 const POLE_FRONT = new V3(0, 0, -1), POLE_BACK = new V3(0, 0, 1), FWD = new V3(0, 0, 1);
 
+/* the gait. A paw stays planted where it stands while it bears weight, and steps when the body
+   has moved or turned away from it, so nothing slides at any speed or while turning on the spot.
+   Moving, the paws step in a cat's walking order (left hind, left fore, right hind, right fore),
+   each landing a little ahead along the way the cat is going; standing, any paw left out of
+   place steps back under the body, one at a time. */
+const GAIT_ORDER = [0.75, 0.25, 0.5, 0]; // FR, FL, BR, BL: phase offsets of the walk
+const HOP_GATHER = 0.16; // seconds of crouch before a jump
+function gaitHome(i, p, out) {
+  const L = cat.legs[i];
+  out.set(L.side * (L.front ? p.fx : p.bx), 0.017, L.front ? p.fz : p.bz);
+  return cat.group.localToWorld(out);
+}
+function stepGait(dt, p) {
+  const G = cat.gait ||= { clock: 0, feet: null, px: 0, pz: 0, py: 0, yaw: 0, speed: 0, turn: 0, dir: new V3(0, 0, 1) };
+  const moved = Math.hypot(cat.pos.x - G.px, cat.pos.z - G.pz), dy = Math.abs(cat.pos.y - G.py);
+  const turned = Math.abs(Math.atan2(Math.sin(cat.yaw - G.yaw), Math.cos(cat.yaw - G.yaw)));
+  if (moved > 1e-5) G.dir.set(cat.pos.x - G.px, 0, cat.pos.z - G.pz).normalize();
+  G.speed = lerp(G.speed, moved / Math.max(dt, 1e-3), damp(dt, 10));
+  G.turn = lerp(G.turn, turned / Math.max(dt, 1e-3), damp(dt, 10));
+  G.px = cat.pos.x; G.pz = cat.pos.z; G.py = cat.pos.y; G.yaw = cat.yaw;
+  const home = new V3();
+  // off the ground, lifted, or somewhere new (a teleport, a landing): the paws start under the body
+  if (cat.airborne && G.feet) { G.air = true; return G; } // the paws leave from where they stood (see poseCat)
+  if (!G.feet || cat.state === 'held' || dy > 0.02 || moved > 0.3) {
+    G.feet = [0, 1, 2, 3].map((i) => ({ pos: gaitHome(i, p, new V3()), from: new V3(), t: -1, dur: 0.2 }));
+    G.air = cat.airborne || cat.state === 'held';
+    return G;
+  }
+  if (G.air) {
+    // touching down: each paw comes the rest of the way from where the jump left it, quickly
+    G.air = false;
+    G.feet.forEach((f, i) => { cat.legs[i].paw.getWorldPosition(f.from); f.pos.copy(f.from); f.t = 0; f.dur = 0.1 + i * 0.015; f.land = true; });
+  }
+  const stalking = cat.state === 'stalk', running = cat.state === 'hunt' && G.speed > 0.35;
+  // a stride the legs can reach: a planted paw travels S * (1 - swing) under the hip, and the
+  // legs (0.098 long, hips about 0.07 above the paws) reach only about 0.06 either side of straight down
+  const S = stalking ? 0.07 : running ? 0.17 : 0.12;        // stride
+  const lift = stalking ? 0.018 : running ? 0.03 : 0.026;
+  const swing = running ? 0.5 : 0.34;                     // share of a stride a paw is in the air
+  const going = G.speed > 0.03 || G.turn > 0.35;
+  const target = (i, out) => {
+    gaitHome(i, p, out);
+    // land ahead along the way the body goes, so the paw is under it halfway through the stance
+    if (G.speed > 0.03) out.addScaledVector(G.dir, S * (1 - swing) * 0.5 * Math.min(1, G.speed / 0.15));
+    return out;
+  };
+  const was = G.clock;
+  if (going) G.clock += (moved + turned * 0.11) / S;
+  for (let i = 0; i < 4; i++) {
+    const f = G.feet[i];
+    if (f.t >= 0) continue;
+    const before = (was + GAIT_ORDER[i]) % 1, after = (G.clock + GAIT_ORDER[i]) % 1;
+    const swinging = G.feet.filter((g) => g.t >= 0).length;
+    const due = going && (after < before || (swinging < 2 && target(i, home).distanceTo(f.pos) > 0.07)); // its turn came round, or it was left far behind
+    const off = !going && !G.feet.some((g) => g.t >= 0) && target(i, home).distanceTo(f.pos) > 0.028; // standing, out of place
+    if (due || off) {
+      f.from.copy(f.pos); f.t = 0;
+      f.dur = going ? clamp((swing * S) / Math.max(G.speed + G.turn * 0.11, 0.08), 0.1, 0.3) : 0.2;
+    }
+  }
+  for (let i = 0; i < 4; i++) {
+    const f = G.feet[i];
+    if (f.t < 0) continue;
+    f.t = Math.min(1, f.t + dt / f.dur);
+    const e = f.t * f.t * (3 - 2 * f.t);
+    target(i, home);
+    f.pos.lerpVectors(f.from, home, e);
+    f.pos.y = lerp(f.from.y, home.y, e) + (f.land ? 0 : Math.sin(Math.PI * f.t) * lift);
+    if (f.t >= 1) { f.pos.copy(home); f.t = -1; f.land = false; }
+  }
+  cat.phase = G.clock * Math.PI * 2;
+  return G;
+}
 function poseCat(dt, time) {
   cat.group.position.copy(cat.pos);
   cat.group.rotation.order = 'YXZ';
@@ -1908,11 +1986,14 @@ function poseCat(dt, time) {
   for (const key in target) p[key] = lerp(p[key], target[key], k);
   for (const [bone, q] of cat.rest) bone.quaternion.copy(q);
   const B = cat.bones;
-  const walking = cat.state === 'walk' || cat.state === 'hop' || cat.state === 'hunt';
+  const walking = (cat.gait?.speed || 0) > 0.05 && !cat.airborne;
   const breathe = cat.state === 'sleep' ? Math.sin(time * 1.6) : Math.sin(time * 2.4) * 0.3;
+  // gathering for a jump and landing from one: the hips sink and the legs fold under them
+  cat.crouch = (cat.state === 'hop' || cat.state === 'pounce') && !cat.airborne ? cat.crouch || 0 : lerp(cat.crouch || 0, 0, damp(dt, 7));
+  cat.airT = cat.airborne ? (cat.airT || 0) + dt : 0;
   B.pelvis.position.copy(cat.pelvisRest);
-  B.pelvis.position.y += p.y + (walking ? Math.abs(Math.sin(cat.phase)) * 0.006 : 0);
-  B.pelvis.position.z += p.z;
+  B.pelvis.position.y += p.y;
+  B.pelvis.position.z += p.z - 0.03 * cat.crouch + (walking ? Math.abs(Math.sin(cat.phase)) * 0.004 : 0); // bone +z is up
   cat.group.updateMatrixWorld(true);
 
   turn(B.pelvis, AX.x, p.pitch);
@@ -1922,7 +2003,7 @@ function poseCat(dt, time) {
   turn(B.chest, AX.x, -p.arch * 0.5 + (walking ? Math.sin(cat.phase * 2) * 0.02 : 0));
   turn(B.chest, AX.y, p.curl);
   // front paws must reach the floor: tip the body forward until they do
-  if (cat.state !== 'held' && cat.state !== 'pounce' && cat.state !== 'hop') {
+  if (cat.state !== 'held' && !cat.airborne) {
     const L = cat.legs[1];
     for (let k = 0; k < 8; k++) {
       L.upper.getWorldPosition(_hip);
@@ -1939,31 +2020,39 @@ function poseCat(dt, time) {
   turn(B.head, AX.y, p.hy + idle * Math.sin(time * 0.37) * 0.35);
   turn(B.head, AX.z, p.hr);
 
-  // legs: paws on the floor, lifted and swung when walking
+  // legs
   cat.group.getWorldQuaternion(_gw);
+  const G = stepGait(dt, p);
   for (let i = 0; i < 4; i++) {
     const L = cat.legs[i];
     const x = L.side * (L.front ? p.fx : p.bx), z = L.front ? p.fz : p.bz;
-    let fy = 0.017, fz = z;
-    if (walking) {
-      const ph = cat.phase + (i === 0 || i === 3 ? 0 : Math.PI);
-      fz += Math.sin(ph) * 0.075;
-      fy += Math.max(0, Math.cos(ph)) * 0.035;
-    }
     if (cat.state === 'bat' && i === 1) {
-      // a quick swipe of the left front paw
+      // a quick swipe of the left front paw, from where it stands and back to it
       const sw = Math.max(0, Math.sin(clamp((cat.stateT - 0.15) / 0.5, 0, 1) * Math.PI));
       _tgt.set(x, 0.017 + sw * 0.09, z + sw * 0.1);
       cat.group.localToWorld(_tgt);
+      _tgt.lerp(G.feet[i].pos, 1 - Math.min(1, sw * 3));
     } else if (cat.state === 'held') {
       L.upper.getWorldPosition(_a);
       _tgt.copy(_a).add(_v.set(0, -0.11, 0.02).applyQuaternion(_gw));
-    } else {
-      _tgt.set(x, fy, fz);
+    } else if (cat.airborne) {
+      // in the air: front paws reach for the landing, back legs push off and trail; the paws
+      // leave the ground over the first tenth of a second rather than all at once
+      _tgt.set(x, L.front ? 0.0 : 0.03, L.front ? z + 0.05 : z - 0.06);
       cat.group.localToWorld(_tgt);
+      _tgt.lerp(G.feet[i].pos, 1 - smooth(0, 0.1, cat.airT));
+    } else {
+      _tgt.copy(G.feet[i].pos);
     }
     solveLeg(L, _tgt.clone(), L.front ? POLE_FRONT : POLE_BACK);
     aim(L.paw, _v.copy(FWD).applyQuaternion(_gw));
+    // a planted paw the leg cannot reach (tucked under the haunches when sitting) is where the
+    // leg actually puts it, so standing up never makes it jump to a place it never was
+    const f = G.feet[i];
+    if (f.t < 0 && !cat.airborne && cat.state !== 'held' && !(cat.state === 'bat' && i === 1)) {
+      L.paw.getWorldPosition(_a);
+      if (_a.distanceTo(f.pos) > 0.003) f.pos.copy(_a);
+    }
   }
 
   // tail: lift at the root, then curve and wave along the chain
@@ -2148,6 +2237,21 @@ function hereScore(cands) {
   return warmth(cat.pos, onSeat(cat.pos)) + (still ? still.bonus || 0 : 0);
 }
 
+/* films: send the cat to the best spot of one kind ('box', 'perch' takes the highest, 'watch',
+   'play' goes for the yarn), by the same routes the cat would choose itself */
+function catSeek(kind, bats = 3) {
+  if (kind === 'play') {
+    const yarn = props.find((pr) => pr.type === 'yarn');
+    if (!yarn?.ball) return false;
+    const at = yarn.ball.position;
+    cat.bats = bats;
+    goTo({ p: floorNear(at, 0.16) || at.clone().setY(0), kind: 'play', face: at });
+    return cat.path.length > 0;
+  }
+  const c = candidates().filter((x) => x.kind === kind).sort((a, b) => b.p.y - a.p.y)[0];
+  if (c) goTo(c);
+  return !!c && cat.path.length > 0;
+}
 function decide() {
   // a ball of yarn nearby is sometimes more interesting than anything warm
   const yarn = props.find((pr) => pr.type === 'yarn');
@@ -2163,6 +2267,7 @@ function decide() {
 }
 function goTo(c) {
   if (!c || !c.p) return;
+  cat.faceYaw = null;
   const legs = [];
   let start = cat.pos.clone();
   if (start.y > 0.05 || cat.inBox) {
@@ -2191,21 +2296,35 @@ function arrive() {
   cat.stateT = 0;
   if (c.hops) cat.landing = c.away || c.hops[0];
   if (c.kind === 'box') cat.inBox = true;
-  if (c.face) { const yaw = Math.atan2(c.face.x - cat.pos.x, c.face.z - cat.pos.z); cat.yaw = yaw; }
+  if (c.face) cat.faceYaw = Math.atan2(c.face.x - cat.pos.x, c.face.z - cat.pos.z); // turned to over the next moments, on its feet
   cat.state = { eat: 'eat', meow: 'meow', play: 'bat', watch: 'watch' }[c.kind] || 'sit';
 }
-function turnToward(target, dt, rate = 10) {
-  const yaw = Math.atan2(target.x - cat.pos.x, target.z - cat.pos.z);
-  cat.yaw += Math.atan2(Math.sin(yaw - cat.yaw), Math.cos(yaw - cat.yaw)) * damp(dt, rate);
+/* turning is a critically damped spring on the heading: it gathers speed and settles, never
+   starting at full speed or stopping dead */
+function turnYaw(yaw, dt, rate) {
+  const err = Math.atan2(Math.sin(yaw - cat.yaw), Math.cos(yaw - cat.yaw)), w = rate * 0.9;
+  cat.yawVel = (cat.yawVel || 0) + (w * w * err - 2 * w * (cat.yawVel || 0)) * dt;
+  cat.yaw += cat.yawVel * dt;
+  cat.turning = true;
 }
-function walkToward(target, speed, dt) {
+function turnToward(target, dt, rate = 10) {
+  turnYaw(Math.atan2(target.x - cat.pos.x, target.z - cat.pos.z), dt, rate);
+}
+const approach = (v, to, step) => (v < to ? Math.min(to, v + step) : Math.max(to, v - step));
+/* walk: the cat speeds up and slows down (never from rest to full pace in a frame), brakes to
+   arrive where the path ends (`rest` is the path still to walk after this leg), and turns
+   toward its heading before it sets off */
+function walkToward(target, speed, dt, rest = 0) {
   const d = new V3(target.x - cat.pos.x, 0, target.z - cat.pos.z);
   const dist = d.length();
   if (dist < 0.02) return true;
-  cat.pos.addScaledVector(d.normalize(), Math.min(dist, speed * dt));
+  const yaw = Math.atan2(d.x, d.z), err = Math.atan2(Math.sin(yaw - cat.yaw), Math.cos(yaw - cat.yaw));
+  const align = Math.max(0, Math.cos(err)) ** 2;
+  const brake = Math.sqrt(2 * 1.3 * (dist + rest)) + 0.02;
+  cat.speed = approach(cat.speed || 0, Math.min(speed, brake) * align, 1.3 * dt);
+  cat.pos.addScaledVector(d.normalize(), Math.min(dist, cat.speed * dt));
   cat.pos.y = 0;
-  turnToward(target, dt);
-  cat.phase += dt * (2 * Math.PI / 0.75) * (speed / 0.4);
+  turnToward(target, dt, 5);
   return false;
 }
 /* push the cat's body (two discs, chest and hips) out of anything it is not on */
@@ -2237,8 +2356,16 @@ function keepCatOut() {
   cat.pos.z = clamp(cat.pos.z, -HW + 0.1, HW - 0.1);
 }
 function stepCat(dt, time) {
+  // a turn nobody is steering any more coasts to a stop instead of freezing mid-swing
+  if (!cat.turning && cat.yawVel) { cat.yawVel *= Math.exp(-dt * 12); cat.yaw += cat.yawVel * dt; }
+  cat.turning = false;
   if (cat.held) { cat.state = 'held'; cat.activity = 'being held, patiently'; return; }
   cat.stateT += dt;
+  if (cat.faceYaw != null) {
+    const e = Math.atan2(Math.sin(cat.faceYaw - cat.yaw), Math.cos(cat.faceYaw - cat.yaw));
+    if (Math.abs(e) < 0.01 || cat.state === 'walk' || cat.state === 'hop') cat.faceYaw = null;
+    else turnYaw(cat.faceYaw, dt, 5);
+  }
   // meal times: 08:00 and 19:00
   const meal = [8, 19].find((h) => clock.h >= h && clock.h < h + 0.25);
   if (meal !== undefined && cat.lastMeal !== meal && props.some((pr) => pr.type === 'bowls')) { cat.hungry = true; cat.lastMeal = meal; cat.decideT = 0.2; cat.replan = true; }
@@ -2250,12 +2377,23 @@ function stepCat(dt, time) {
     if (leg.walk) {
       cat.state = 'walk';
       if (cat.replan && cat.pos.y < 0.05) { cat.replan = false; const was = cat.spot; decide(); if (cat.spot !== was) return; }
-      if (walkToward(leg.walk, 0.4, dt)) { cat.path.shift(); return; }
+      let rest = 0;
+      for (let i = 1, at = leg.walk; i < cat.path.length && cat.path[i].walk; i++) { rest += Math.hypot(cat.path[i].walk.x - at.x, cat.path[i].walk.z - at.z); at = cat.path[i].walk; }
+      if (walkToward(leg.walk, 0.3, dt, rest)) { cat.path.shift(); return; }
       if (Math.hypot(cat.pos.x - monsteraItem.x, cat.pos.z - monsteraItem.z) < 0.4) brushPlant();
     } else if (leg.hop) {
-      if (cat.state !== 'hop') { cat.state = 'hop'; cat.hop = 0; }
       const [a, b] = leg.hop;
       const rise = Math.abs(b.y - a.y);
+      // gather: a short crouch, turned toward the jump, before leaving the ground
+      if (cat.state !== 'hop') { cat.state = 'hop'; cat.hop = 0; cat.gatherT = 0; cat.speed = 0; }
+      if (cat.gatherT < HOP_GATHER) {
+        cat.gatherT += dt;
+        cat.crouch = Math.max(cat.crouch || 0, Math.sin(Math.min(1, cat.gatherT / HOP_GATHER) * Math.PI / 2));
+        if (Math.hypot(b.x - a.x, b.z - a.z) > 0.02) turnToward(b, dt, 6);
+        cat.airborne = false;
+        return;
+      }
+      cat.airborne = true;
       cat.hop += dt / (0.36 + 0.34 * Math.min(1, rise / 0.5));
       const t = Math.min(1, cat.hop);
       cat.pos.lerpVectors(a, b, t);
@@ -2265,7 +2403,7 @@ function stepCat(dt, time) {
       const vy = (b.y - a.y) + Math.cos(Math.PI * t) * Math.PI * arc, vh = Math.hypot(b.x - a.x, b.z - a.z) + 0.2;
       cat.hopPitch = clamp(-Math.atan2(vy, vh) * 0.6, -0.6, 0.5);
       if (Math.hypot(b.x - a.x, b.z - a.z) > 0.02) turnToward(b, dt, 14);
-      if (t >= 1) { cat.path.shift(); cat.state = 'walk'; }
+      if (t >= 1) { cat.path.shift(); cat.state = 'walk'; cat.airborne = false; cat.crouch = 0.9; } // lands soft: the legs take it
     }
     cat.activity = { eat: 'off to dinner', meow: 'coming to tell you something', play: 'eyeing the yarn', box: 'drawn to the box', perch: 'climbing the cat tree', watch: 'going to watch the birds' }[cat.spot?.kind] || 'heading for the warm spot';
     return;
@@ -2650,11 +2788,12 @@ function cutNormalMat(mask, side, planes) {
   });
 }
 /* foliage writes alpha 0.5 into the normal buffer, so the paint pass can spare leaves from AO mush and the lavender grade */
+let planeIds = 0; // a counter, not Math.random: drawing must not use up the random numbers, or films rendered in parts drift apart
 function normalMatFor(m, foliage) {
   const src = Array.isArray(m) ? m[0] : m;
   const planes = src.clippingPlanes || null;
   const cut = src.alphaTest > 0 ? src.alphaMap || src.map : null;
-  const key = (planes ? planes[0].__id || (planes[0].__id = Math.random()) : 0) + ':' + src.side + ':' + (cut ? cut.uuid : '') + (foliage ? ':f' : '');
+  const key = (planes ? planes[0].__id || (planes[0].__id = ++planeIds) : 0) + ':' + src.side + ':' + (cut ? cut.uuid : '') + (foliage ? ':f' : '');
   if (!normalMats.has(key)) normalMats.set(key, cut ? cutNormalMat(cut, src.side, planes) : new THREE.MeshNormalMaterial({ side: src.side, clippingPlanes: planes, opacity: foliage ? 0.5 : 1 }));
   return normalMats.get(key);
 }
@@ -2740,7 +2879,7 @@ function paintFrame() {
 const BD = {
   on: params.has('breakdown'),
   stage: { view: 'final' }, left: null, wipeX: null, clipX: null,
-  assemble: 1, bones: 0, cut: null, portal: 0, clay: false, labelOpacity: 1, lines: 0, band: 0,
+  assemble: 1, bones: 0, cut: null, portal: 0, clay: false, labelOpacity: 1, lines: 0, band: 0, build: null,
   stats: { tris: 0, calls: 0 },
   clayMat: new THREE.MeshToonMaterial({ color: '#8f8a93', gradientMap: gradient }),
 };
@@ -2774,6 +2913,7 @@ function applyFlags(st) {
 }
 function drawStage(st) {
   applyFlags(st);
+  if (st.view === 'diagram') { bdDiagram(); return; }
   if (st.view === 'wire') {
     paintFrame(); // for the depth the lines are tested against
     renderer.setRenderTarget(null);
@@ -2795,8 +2935,35 @@ function bdParts() {
   const set = new Set([floor, ...Object.values(wallGroups), windowGroup, wallStuff, ...items.map((i) => i.group)]);
   return [...set].filter((g) => g && g.parent);
 }
+/* the assembly manual: parts land one after another, each 0.45 s ease-out down its arrow,
+   the gaps between them shrinking (start = span * sqrt(k / (n - 1))); a ghost outline waits
+   where each part will stand */
+const BD_LAND = 0.45, BD_GHOST = 0.3;
+let bdOrder = null;
+function bdSchedule() {
+  if (bdOrder) return bdOrder;
+  const parts = bdParts();
+  const size = (g) => { const b = new THREE.Box3().setFromObject(g).getSize(new V3()); return b.x * b.y * b.z; };
+  const rank = (g) => g === floor ? 0 : Object.values(wallGroups).includes(g) ? 1 : g === windowGroup ? 2 : g === wallStuff ? 4 : 3;
+  bdOrder = parts.map((g) => ({ g, r: rank(g), v: size(g) })).sort((a, b) => a.r - b.r || b.v - a.v).map((o) => o.g);
+  return bdOrder;
+}
+function bdLandAt(k, n) { return 0.15 + 2.0 * Math.sqrt(k / Math.max(1, n - 1)); }
+const easeOut = (x) => 1 - Math.pow(1 - clamp(x, 0, 1), 3);
 function bdExplode() {
   bdHome.length = 0;
+  if (BD.build != null) {
+    const order = bdSchedule(), n = order.length;
+    order.forEach((g, k) => {
+      if (!g.parent) return;
+      const s = bdLandAt(k, n), t = (BD.build - s) / BD_LAND;
+      bdHome.push([g, g.position.clone(), g.rotation.y, g.visible]);
+      g.userData.bdLand = t; g.userData.bdHomePos = g.position.clone();
+      if (t < 0) { g.visible = false; return; }
+      g.position.y += 1.5 * (1 - easeOut(t));
+    });
+    return;
+  }
   if (BD.assemble >= 1) return;
   const parts = bdParts(), n = parts.length;
   parts.forEach((g, k) => {
@@ -2810,7 +2977,7 @@ function bdExplode() {
     g.rotation.y += (k % 2 ? 0.5 : -0.5) * away;
   });
 }
-function bdRestore() { for (const [g, p, ry] of bdHome) { g.position.copy(p); g.rotation.y = ry; } bdHome.length = 0; }
+function bdRestore() { for (const [g, p, ry, vis] of bdHome) { g.position.copy(p); g.rotation.y = ry; if (vis !== undefined) g.visible = vis; } bdHome.length = 0; }
 /* the cat's skeleton, drawn over the finished frame: a stick and a ball per bone */
 const bdSkelScene = new THREE.Scene();
 const bdJointMat = new THREE.MeshBasicMaterial({ color: '#ffb27a', depthTest: false, transparent: true });
@@ -2873,12 +3040,13 @@ function bdBuildLines() {
     if (!src || src.colorWrite === false || src.visible === false) continue;
     if (o.isSkinnedMesh) {
       const w = new THREE.SkinnedMesh(o.geometry, bdCatWireMat);
-      w.bind(o.skeleton, o.bindMatrix); w.bindMode = o.bindMode; w.layers.set(2); w.frustumCulled = false;
+      w.bind(o.skeleton, o.bindMatrix); w.bindMode = o.bindMode; w.layers.set(4); w.frustumCulled = false;
       o.add(w); continue;
     }
     const edges = new THREE.EdgesGeometry(o.geometry, 28);
+    const dense = !!o.userData.foliage || edges.attributes.position.count / 2 > 700; // folds and leaves: a tangle, not a drawing
     for (const hidden of [false, true]) {
-      const l = new THREE.LineSegments(edges, bdLineMat(src, hidden, !!o.userData.foliage));
+      const l = new THREE.LineSegments(edges, bdLineMat(src, hidden, dense));
       l.layers.set(hidden ? 3 : 2); l.raycast = () => {};
       o.add(l);
     }
@@ -2908,7 +3076,7 @@ function bdLines(a, clip, over = true) {
     renderer.clearDepth();
     runPass(bdDepthMat, null);
     camera.layers.set(3); renderer.render(scene, camera);
-    camera.layers.set(2); renderer.render(scene, camera);
+    camera.layers.set(2); camera.layers.enable(4); renderer.render(scene, camera);
   });
   camera.layers.set(0); camera.layers.enable(1);
   renderer.autoClear = true;
@@ -2919,9 +3087,113 @@ function bdBandClip(fn) {
   renderer.setScissorTest(true); renderer.setScissor(x0, 0, Math.max(0, x1 - x0), innerHeight);
   fn(); renderer.setScissorTest(false);
 }
+/* the diagram: white parts with ink edges on paper; a part on its way down is pale blue,
+   with a dark blue arrow from where it comes from and its outline waiting where it lands */
+const BD_PAPER = new THREE.Color('#f6f4ef'), BD_EDGE = new THREE.Color('#34313f'), BD_ACCENT = new THREE.Color('#1f4fd8');
+const bdDiagramMats = new Map();
+/* `blue` 0..1: a landed part's tint fades back to white over a few frames rather than switching,
+   so big parts landing one after another never flash */
+const BD_TINTS = 12, BD_WHITE = new THREE.Color('#efedea'), BD_BLUE = new THREE.Color('#a6c0f6');
+function bdDiagramMat(src, blue) {
+  let set = bdDiagramMats.get(src);
+  if (!set) {
+    set = Array.from({ length: BD_TINTS + 1 }, (_, k) => new THREE.MeshToonMaterial({
+      color: BD_WHITE.clone().lerp(BD_BLUE, k / BD_TINTS), gradientMap: gradient, clippingPlanes: src?.clippingPlanes || null,
+      side: src?.side ?? THREE.FrontSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+      alphaMap: src?.alphaMap || null, map: src?.alphaTest ? src.map : null, alphaTest: src?.alphaTest || 0 }));
+    bdDiagramMats.set(src, set);
+  }
+  return set[Math.round(clamp(blue, 0, 1) * BD_TINTS)];
+}
+const bdArrowScene = new THREE.Scene();
+const bdArrows = new Map();
+function bdArrow(g) {
+  let a = bdArrows.get(g);
+  if (!a) {
+    const mat = new THREE.LineBasicMaterial({ color: BD_ACCENT, transparent: true, depthTest: false });
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new V3(), new V3(0, 1, 0)]), mat);
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.09, 12), new THREE.MeshBasicMaterial({ color: BD_ACCENT, transparent: true, depthTest: false }));
+    bdArrowScene.add(line, head);
+    a = { line, head }; bdArrows.set(g, a);
+  }
+  return a;
+}
+function bdDiagram() {
+  const order = bdSchedule();
+  // parts: white once landed, pale blue while in the air (and for a moment after)
+  const swaps = [], blue = new Map();
+  for (const g of order) {
+    const t = g.userData.bdLand;
+    const k = t === undefined ? 0 : 1 - smooth(1.0, 1.7, t); // blue in the air, fading to white after it lands
+    if (k > 0) g.traverse((o) => blue.set(o, k));
+  }
+  scene.traverse((o) => {
+    if (!o.isMesh || !o.layers.isEnabled(0) || !o.material) return;
+    const src = Array.isArray(o.material) ? o.material : [o.material];
+    if (src.every((m) => m.colorWrite === false)) return;
+    swaps.push(o, o.material);
+    const mats = src.map((m) => (m.colorWrite === false ? m : bdDiagramMat(m, blue.get(o) || 0)));
+    o.material = Array.isArray(o.material) ? mats : mats[0];
+  });
+  renderer.setRenderTarget(null);
+  renderer.setClearColor(BD_PAPER, 1);
+  const hemiI = hemi.intensity, sunI = sunLight.intensity, fillI = fill.intensity;
+  const hemiSky = hemi.color.clone(), hemiGround = hemi.groundColor.clone();
+  hemi.color.set('#ffffff'); hemi.groundColor.set('#e9e7e4');
+  hemi.intensity = 2.6; sunLight.intensity = 0.5; fill.intensity = 0.3; // near-flat white light, one pale shadow
+  camera.layers.set(0);
+  toScreen(() => { renderer.clear(); renderer.render(scene, camera); });
+  hemi.intensity = hemiI; sunLight.intensity = sunI; fill.intensity = fillI;
+  hemi.color.copy(hemiSky); hemi.groundColor.copy(hemiGround);
+  for (let i = 0; i < swaps.length; i += 2) swaps[i].material = swaps[i + 1];
+  renderer.setClearColor(0x000000, 0);
+  if (!bdLinesBuilt) bdBuildLines();
+  renderer.autoClear = false;
+  // ink edges over the scene's own depth
+  for (const m of bdLineMats) { m.color.copy(BD_EDGE); m.opacity = (m.userData.hidden ? 0.08 : 0.72) * (m.userData.foliage ? 0.45 : 1); }
+  bdCatWireMat.opacity = 0;
+  toScreen(() => { camera.layers.set(3); renderer.render(scene, camera); camera.layers.set(2); renderer.render(scene, camera); });
+  // ghosts: each coming part's outline at home, fading in before it arrives
+  const lifted = [];
+  for (const g of order) {
+    const t = g.userData.bdLand;
+    if (t === undefined || !g.parent) continue;
+    const ga = clamp((t * BD_LAND + BD_GHOST) / BD_GHOST, 0, 1) * (1 - clamp(t, 0, 1));
+    lifted.push([g, g.position.clone(), g.visible, ga]);
+  }
+  for (const [g, , , ga] of lifted) { g.position.copy(g.userData.bdHomePos); g.visible = ga > 0.01; }
+  const ghostK = new Map(lifted.map(([g, , , ga]) => [g, ga]));
+  for (const m of bdLineMats) { m.color.copy(BD_ACCENT); }
+  for (const [g, , , ga] of lifted) g.traverse((o) => { if (o.isLineSegments) o.material.opacity = (o.material.userData.hidden ? 0 : 0.55) * ga; });
+  const others = [];
+  scene.traverse((o) => { if ((o.isLineSegments) && !lifted.some(([g]) => g === o.parent || isUnder(o, g))) { others.push(o, o.visible); o.visible = false; } });
+  toScreen(() => { camera.layers.set(2); renderer.render(scene, camera); });
+  for (let i = 0; i < others.length; i += 2) others[i].visible = others[i + 1];
+  for (const [g, pos, vis] of lifted) { g.position.copy(pos); g.visible = vis; }
+  // arrows: from the part down to where it lands
+  for (const [g, pos, , ga] of lifted) {
+    const t = g.userData.bdLand, a = bdArrow(g);
+    const k = ga > 0 && t < 1.2 ? Math.min(ga > 0 ? 1 : 0, 1 - clamp((t - 1) / 0.2, 0, 1)) * clamp((t * BD_LAND + BD_GHOST) / BD_GHOST, 0, 1) : 0;
+    a.line.visible = a.head.visible = k > 0.01;
+    if (!a.line.visible) continue;
+    const box = new THREE.Box3().setFromObject(g), c = box.getCenter(new V3());
+    const home = c.clone().sub(pos).add(g.userData.bdHomePos);
+    const top = new V3(home.x, box.max.y - pos.y + g.userData.bdHomePos.y + 0.12, home.z);
+    const from = top.clone().setY(top.y + 1.5 * (1 - easeOut(Math.max(0, t))) + 0.35);
+    a.line.geometry.setFromPoints([from, top]);
+    a.head.position.copy(top).setY(top.y + 0.045); a.head.rotation.set(Math.PI, 0, 0);
+    a.line.material.opacity = a.head.material.opacity = k;
+  }
+  camera.layers.set(0);
+  toScreen(() => renderer.render(bdArrowScene, camera));
+  camera.layers.set(0); camera.layers.enable(1);
+  renderer.autoClear = true;
+}
+function isUnder(o, g) { for (let p = o.parent; p; p = p.parent) if (p === g) return true; return false; }
 function bdWindow() {
   const day = viewPlanes[0].material, on = BD.portal > 0.001;
   day.stencilWrite = !on; day.stencilFunc = on ? THREE.AlwaysStencilFunc : THREE.EqualStencilFunc;
+  if (day.transparent !== on) day.needsUpdate = true; // blending is baked into the program: rebuild it, or the painting pops
   day.transparent = on; day.opacity = on ? BD.portal : 1; day.depthWrite = !on;
   viewPlanes[1].visible = !on;
 }
@@ -3090,6 +3362,10 @@ function surfaceAt(point) {
   return null;
 }
 
+/* films: fetch every prop's model before the first frame, so a prop added mid-film is ready on
+   the same frame however fast the film is being stepped */
+const propModelPath = (type) => `models/props/${type.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase())}.glb`;
+function preloadProps() { return Promise.all([...Object.keys(PROP_TYPES).map((t) => loadGLB(propModelPath(t))), loadGLB('models/props/bird.glb')]).then(() => true); }
 function addProp(type, at = {}) {
   const T = PROP_TYPES[type];
   const group = new THREE.Group();
@@ -3121,7 +3397,7 @@ function addProp(type, at = {}) {
   pr.item = it;
   it.prop = pr;
   props.push(pr);
-  modelFor(type, `models/props/${type.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase())}.glb`).then((model) => {
+  modelFor(type, propModelPath(type)).then((model) => {
     if (!props.includes(pr)) return;
     pr.model = model;
     group.add(model);
@@ -3244,9 +3520,20 @@ PROP_STEP.floorLamp = (pr, dt) => {
   if (!pr.light) return;
   pr.light.intensity += ((pr.on ? 2.2 : 0) - pr.light.intensity) * damp(dt, 5);
   pr.pool.material.opacity = clamp(pr.light.intensity / 2.2, 0, 1) * lerp(0.26, 0.1, sun.day);
-  if (pr.bulb) pr.bulb.material = pr.on ? (pr.bulbOn ||= glow('#ffe2b0', 2.8)) : (pr.bulbOff ||= pr.bulb.material);
+  // bulb and shade warm up with the light rather than switching in one frame
+  const k = clamp(pr.light.intensity / 2.2, 0, 1);
+  if (pr.bulb) {
+    pr.bulbOff ||= pr.bulb.material; pr.bulbOn ||= glow('#ffe2b0', 2.8);
+    pr.bulb.material = k > 0.04 ? pr.bulbOn : pr.bulbOff;
+    pr.bulbOn.color.set('#ffe2b0').multiplyScalar(lerp(0.6, 2.8, k));
+  }
   // a linen shade lit from inside: still shaded, just warm and bright
-  if (pr.shade) { pr.shadeOff ||= pr.shade.material; pr.shade.material = pr.on ? (pr.shadeOn ||= toon('#fff1dc', { emissive: '#ffb56e', emissiveIntensity: 0.5, side: THREE.DoubleSide })) : pr.shadeOff; }
+  if (pr.shade) {
+    pr.shadeOff ||= pr.shade.material;
+    pr.shadeOn ||= toon('#fff1dc', { emissive: '#ffb56e', emissiveIntensity: 0.5, side: THREE.DoubleSide });
+    pr.shade.material = k > 0.02 ? pr.shadeOn : pr.shadeOff;
+    pr.shadeOn.emissiveIntensity = 0.5 * k;
+  }
 };
 
 // candle: flame, flicker, and the breeze from an open window can blow it out
@@ -3532,7 +3819,7 @@ function stepHunt(dt) {
     turnToward(dot, dt, 5);
     if (dist > 0.16) walkToward(dot, cat.huntV, dt), cat.state = 'stalk';
     cat.stalkT = (cat.stalkT || 0) + dt;
-    if (cat.stalkT > 0.8 && dist < 0.3) { cat.state = 'pounce'; cat.hop = 0; cat.pounce = [cat.pos.clone(), new V3(dot.x, 0, dot.z)]; }
+    if (cat.stalkT > 0.8 && dist < 0.3) { cat.state = 'pounce'; cat.hop = -0.3; cat.pounce = [cat.pos.clone(), new V3(dot.x, 0, dot.z)]; }
   }
   cat.activity = 'hunting the red dot';
   return true;
@@ -3540,10 +3827,12 @@ function stepHunt(dt) {
 function stepPounce(dt) {
   const [a, b] = cat.pounce;
   cat.hop += dt / 0.45;
+  if (cat.hop < 0) { cat.crouch = Math.max(cat.crouch || 0, 1 + cat.hop / 0.3 * 0.4); cat.airborne = false; return; } // hips down, then go
+  cat.airborne = true;
   const t = Math.min(1, cat.hop), e = t * t * (3 - 2 * t);
   cat.pos.lerpVectors(a, b, e);
   cat.pos.y = Math.sin(Math.PI * t) * 0.12;
-  if (t >= 1) { cat.state = 'stalk'; cat.stalkT = -0.6; cat.huntV = 0; cat.pos.y = 0; }
+  if (t >= 1) { cat.state = 'stalk'; cat.stalkT = -0.6; cat.huntV = 0; cat.pos.y = 0; cat.airborne = false; cat.crouch = 1; }
 }
 
 /* ---------- small sounds, made on the spot ---------- */
@@ -4835,7 +5124,10 @@ function frame(now) {
   if (lantern.auto) lantern.on = sun.el < 3 * DEG || weather.k > 0.5;
   lanternLight.intensity += ((lantern.on ? 5 : 0) - lanternLight.intensity) * damp(dt, 4);
   lanternPool.material.opacity = clamp(lanternLight.intensity / 5, 0, 1) * lerp(0.3, 0.12, sun.day);
-  lanternBall.material = lantern.on ? lanternOnMat : lanternOffMat;
+  // the paper warms up with its light instead of switching in one frame
+  const lk = clamp(lanternLight.intensity / 5, 0, 1);
+  lanternBall.material = lk > 0.04 ? lanternOnMat : lanternOffMat;
+  lanternOnMat.color.copy(lanternOnColor).multiplyScalar(lerp(0.22, 1, lk));
 
   // window and breeze
   windowState.k += ((windowState.open ? 1 : 0) - windowState.k) * damp(dt, 3);
@@ -4952,13 +5244,13 @@ function frame(now) {
   keepCatOut();
   poseCat(dt, time);
 
-  renderFrame();
+  if (!window.__room.dry) renderFrame(); // a film fast-forwarding to its segment skips the drawing
   window.__room.frames++;
   if (!FIXED) requestAnimationFrame(frame);
 }
 
 window.__room = {
-  frames: 0, bd: BD, bdLabel, bdCount, album, MOMENTS, setAlbum, snapMoment, showCatch, roomEvents, weather, sun, fallen, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, goTo, look, sunlit, lantern, windowState, monstera, lemon, papers, tea,
+  frames: 0, bd: BD, bdLabel, bdCount, album, MOMENTS, setAlbum, snapMoment, showCatch, catSeek, preloadProps, roomEvents, weather, sun, fallen, cat, clock, items, view, resize, camera, radio, props, addProp, removeProp, laser, birds, water, PLANTS, wind, goTo, look, sunlit, lantern, windowState, monstera, lemon, papers, tea,
   get: (name) => items.find((i) => i.name === name),
   move(name, x, z, rot = 0) { const it = this.get(name); Object.assign(it, { x, z, rot }); placeItem(it); itemsMoved(); },
   project(v) { const p = new V3(...v).project(camera); return [(p.x + 1) / 2 * innerWidth, (1 - p.y) / 2 * innerHeight]; },
