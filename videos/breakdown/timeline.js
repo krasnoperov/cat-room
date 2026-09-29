@@ -1,40 +1,39 @@
 // The breakdown film as one function of time: window.bdAt(r, T) sets every knob for second T.
-// Each new look sweeps in over the previous one from the left; nothing switches on a hard cut.
+// Fast: about twenty seconds. Each new look sweeps in over the previous one from the left in
+// 0.7 s; nothing switches on a hard cut, nothing lingers.
 (() => {
   const DEG = Math.PI / 180;
   const cl = (x, a, b) => Math.min(b, Math.max(a, x));
   const sm = (a, b, x) => { const t = cl((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const lerp = (a, b, t) => a + (b - a) * t;
-  const WIRE = { view: 'wire' };
+  const DIAGRAM = { view: 'diagram' };
   const CLAY = { view: 'final', clay: 1, ink: 1, ao: 1, bloom: 0, grade: 0, finish: 0 };
   const NORMALS = { view: 'normals' };
   const INK = { view: 'final', ink: 1, ao: 0, bloom: 0, grade: 0, finish: 0 };
   const DEPTH = { view: 'depth' };
   const INK_AO = { view: 'final', ink: 1, ao: 1, bloom: 0, grade: 0, finish: 0 };
   const FULL = { view: 'final' };
-  // [time the sweep starts, look]; each sweep lasts SW seconds
-  const SW = 1.3;
-  const LOOKS = [[0, WIRE], [3.8, CLAY], [15.0, NORMALS], [17.4, INK], [19.8, DEPTH], [22.0, INK_AO], [24.4, FULL]];
+  const SW = 0.7;
+  const LOOKS = [[0, DIAGRAM], [2.9, CLAY], [8.6, NORMALS], [9.9, INK], [11.2, DEPTH], [12.5, INK_AO], [13.8, FULL]];
   let tris = null;
   const LABELS = [
-    [0, 3.9, '01 · geometry', 'Every object is a real mesh', () => `${tris.toLocaleString('en-US')} triangles · built in Blender`],
-    [3.9, 7.6, '02 · form', 'Clay: shape and shadow, no colour', () => 'toon shading · 3 light bands'],
-    [7.6, 11.0, '03 · light', 'A sun that walks across the window', () => 'real-time shadow map · sun from the clock'],
-    [11.0, 15.0, '04 · rig', 'The cat has a skeleton', () => '23 bones · two-bone IK plants each paw'],
-    [15.0, 19.8, '05 · ink', 'Outlines drawn from normals and depth', () => 'a post pass, not textures'],
-    [19.8, 24.4, '06 · depth', 'Soft contact shadow from the depth buffer', () => 'screen-space ambient occlusion'],
-    [24.4, 27.2, '07 · finish', 'Bloom, colour grade, paper grain', () => 'lavender in shadow · apricot in light'],
-    [27.2, 31.4, '08 · the window', 'The city outside is a painting', () => 'generated with makefx · seen through a stencil portal'],
-    [32.4, 99, 'cat room', 'rooms.krasnoperov.me', () => 'one HTML file · Three.js · Blender · makefx · Claude'],
+    [0, 3.0, '01 · geometry', 'Every object is a real mesh', () => `${tris.toLocaleString('en-US')} triangles · built in Blender`],
+    [3.0, 5.2, '02 · light', 'Clay, and a sun that walks', () => 'toon shading · real-time shadows from the clock'],
+    [5.2, 8.6, '03 · rig', 'The cat has a skeleton', () => '23 bones · two-bone IK plants each paw'],
+    [8.6, 11.2, '04 · ink', 'Outlines drawn from normals and depth', () => 'a post pass, not textures'],
+    [11.2, 13.8, '05 · depth', 'Soft contact shadow from the depth buffer', () => 'screen-space ambient occlusion'],
+    [13.8, 16.0, '06 · finish', 'Bloom, colour grade, paper grain', () => 'lavender in shadow · apricot in light'],
+    [16.0, 99, 'cat room', 'rooms.krasnoperov.me', () => 'one HTML file · Three.js · Blender · makefx · Claude'],
   ];
   window.bdAt = (r, T) => {
     const bd = r.bd, c = r.cat;
     tris = tris || r.bdCount();
-    // camera: a slow continuous turn; a push-in for the rig
-    r.view.angle = r.view.target = (45 + T * 0.42) * DEG;
-    const zRig = sm(10.8, 12.0, T) * (1 - sm(13.9, 15.1, T));
-    r.view.zoom = lerp(lerp(0.86, 0.94, T / 38), 4.6, zRig);
-    r.view.center.set(lerp(0, 0.1, zRig), lerp(0.85, 0.2, zRig), lerp(0, 0.25, zRig));
+    // camera: a continuous turn; a quick push in on the rig and back
+    r.view.angle = r.view.target = (45 + T * 0.9) * DEG;
+    const zRig = sm(5.0, 5.9, T) * (1 - sm(7.7, 8.6, T));
+    r.view.zoom = Math.exp(lerp(Math.log(lerp(0.86, 0.94, T / 20)), Math.log(4.6), zRig));
+    // the push follows the cat as it walks across the rug
+    r.view.center.set(lerp(0, c.pos.x, zRig), lerp(0.85, 0.2, zRig), lerp(0, c.pos.z, zRig));
     r.resize();
     // looks and sweeps
     let k = 0;
@@ -44,28 +43,27 @@
     bd.stage = sweep < 1 && prev ? prev[1] : look;
     bd.left = sweep < 1 && prev ? look : null;
     bd.wipeX = sweep < 1 && prev ? sweep : null;
-    bd.assemble = sm(0.2, 3.6, T);
-    // the drawing stays under the picture: lines over the clay, a band of them behind every
-    // sweep, and the whole drawing back over the room at the end
-    bd.band = 0.14;
-    bd.lines = Math.max(0.6 * sm(3.9, 4.6, T) * (1 - sm(6.6, 8.2, T)), 0.4 * sm(34.2, 35.8, T));
-    // light: the sun walks during 03, dusk at the end
-    r.clock.h = T < 7.6 ? 9 : T < 31.4 ? lerp(9, 16.8, sm(7.8, 10.8, T)) : lerp(16.8, 20.6, sm(31.6, 37.5, T));
+    bd.assemble = 1; bd.build = T < 4 ? T : null;
+    // the drawing shows only in the band behind each sweep; nothing is left over a finished look
+    bd.band = 0.14; bd.lines = 0;
+    // light: the sun walks across the clay, dusk at the end
+    r.clock.h = T < 16 ? lerp(9, 16.8, sm(3.2, 5.2, T)) : lerp(16.8, 20.2, sm(16.2, 19.6, T));
     // the rig: the cat walks across the rug with its bones showing
-    bd.bones = sm(11.4, 12.2, T) * (1 - sm(14.2, 14.9, T));
-    if (T >= 10.6 && T < 15) {
-      c.pos.set(0.1, 0, 0.25); c.yaw = 2.2; c.decideT = 1e9; c.state = 'walk';
-      c.path = [{ walk: { x: 0.1 + Math.sin(2.2) * 9, y: 0, z: 0.25 + Math.cos(2.2) * 9 } }];
-    } else if (T >= 15 && T < 15.1) { c.path = []; c.state = 'sit'; c.stateT = 0; }
-    // the window: walls down, the painting fades up, then everything back
-    const down = sm(27.4, 28.4, T) * (1 - sm(30.6, 31.4, T));
-    bd.cut = down > 0 ? lerp(2.7, 0.35, down) : null;
-    bd.portal = sm(28.3, 29.0, T) * (1 - sm(30.1, 30.7, T));
+    bd.bones = sm(5.6, 6.0, T) * (1 - sm(7.6, 8.0, T));
+    // the cat, as a function of time so film segments rendered apart join up: sitting on the rug,
+    // then one walk across it side-on to the camera (the skeleton reads in profile), then sitting
+    // again where it stopped (the settling steps as it sits are kept)
+    const WALK = [4.6, 8.8], dx = 0.776, dz = -0.631, half = 0.3 * (WALK[1] - WALK[0]) / 2;
+    const d = 0.3 * cl(T - WALK[0], 0, WALK[1] - WALK[0]) - half;
+    c.pos.set(0.1 + dx * d, 0, 0.25 + dz * d); c.yaw = Math.atan2(dx, dz); c.yawVel = 0; c.decideT = 1e9;
+    if (T >= WALK[0] && T < WALK[1]) { c.speed = 0.3; c.state = 'walk'; c.path = [{ walk: { x: 0.1 + dx * 9, y: 0, z: 0.25 + dz * 9 } }]; }
+    else { c.path = []; if (c.state !== 'sit') { c.state = 'sit'; } c.stateT = Math.min(c.stateT, 1); } // sits, never dozes off
+    bd.cut = null; bd.portal = 0;
     // captions fade across their edges
     const L = LABELS.find(([a, b]) => T >= a && T < b);
     if (L) {
       const [a, b, n, title, sub] = L;
-      bd.labelOpacity = Math.min(sm(a, a + 0.35, T), 1 - sm(b - 0.35, b, T));
+      bd.labelOpacity = Math.min(a === 0 ? sm(0.1, 0.4, T) : sm(a, a + 0.25, T), 1 - sm(b - 0.25, b, T));
       r.bdLabel(n, title, sub());
     } else { bd.labelOpacity = 0; r.bdLabel('', '', ''); }
   };
